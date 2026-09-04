@@ -4,9 +4,14 @@ import io
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from markdown_reader import ReaderConfig, create_app
-from markdown_reader.assets import classify_media, sanitize_filename_part
+from markdown_reader.assets import (
+    MAX_ASSET_BYTES,
+    classify_media,
+    sanitize_filename_part,
+)
 
 
 class AssetApiTestCase(unittest.TestCase):
@@ -114,6 +119,16 @@ class AssetApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(list(outside.iterdir()), [])
+
+    def test_upload_limit_is_100_mib_and_partial_file_is_cleaned_up(self) -> None:
+        self.assertEqual(MAX_ASSET_BYTES, 100 * 1024 * 1024)
+        with patch("markdown_reader.assets.MAX_ASSET_BYTES", 8):
+            response = self.upload(content=b"123456789")
+
+        self.assertEqual(response.status_code, 413)
+        asset_directory = self.root / "a" / "assets" / "doc"
+        self.assertEqual(list(asset_directory.glob(".upload-*.tmp")), [])
+        self.assertEqual(list(asset_directory.glob("Figure-1-*")), [])
 
 
 class AssetHelpersTestCase(unittest.TestCase):

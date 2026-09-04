@@ -61,6 +61,10 @@ flowchart LR
 """,
             encoding="utf-8",
         )
+        shutil.copytree(
+            Path(__file__).parent / "fixtures" / "markdown",
+            temporary / "fixtures",
+        )
         ROOT_MARKER.write_text(str(temporary), encoding="utf-8")
         app = create_app(
             ReaderConfig(temporary, temporary / "README.md"),

@@ -28,8 +28,8 @@ include = ["markdown_reader*"]
 [tool.setuptools.package-data]
 markdown_reader = [
   "templates/*.html",
-  "static/*.js",
-  "static/*.css",
   "static/vendor/*.js",
   "static/vendor/mathjax/*.js",
+  "static/dist/*.json",
+  "static/dist/assets/*",
 ]

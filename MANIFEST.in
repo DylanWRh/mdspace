@@ -1,3 +1,2 @@
 recursive-include markdown_reader/templates *.html
-recursive-include markdown_reader/static *.js *.css
-
+recursive-include markdown_reader/static *

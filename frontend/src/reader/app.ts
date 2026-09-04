@@ -1,7 +1,8 @@
+// Reader/workspace orchestration is intentionally isolated from editor state.
 (() => {
   "use strict";
 
-  const state = {
+  const state: any = {
     project: null,
     recentWorkspaces: [],
     directoryBrowser: null,
@@ -14,11 +15,7 @@
     previewController: null,
     toastTimer: null,
     mode: "read",
-    editorOriginal: "",
-    editorVersion: "",
-    editorWorkspace: "",
     editorDirty: false,
-    editorSaving: false,
     collapsedSections: new Map(),
     sectionAncestors: new WeakMap(),
     foldHeadings: [],
@@ -26,7 +23,7 @@
     foldListItems: [],
   };
 
-  const els = {
+  const els: Record<string, any> = {
     fileTree: document.querySelector("#fileTree"),
     fileSearch: document.querySelector("#fileSearch"),
     fileCount: document.querySelector("#fileCount"),
@@ -77,7 +74,7 @@
     const response = await fetch(url, options);
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = new Error(payload.error || `Request failed: ${response.status}`);
+      const error: any = new Error(payload.error || `Request failed: ${response.status}`);
       error.status = response.status;
       throw error;
     }
@@ -97,9 +94,6 @@
 
   function setEditorDirty(dirty) {
     state.editorDirty = dirty;
-    els.editorState.textContent = dirty ? "有未保存更改" : "未修改";
-    els.editorState.classList.toggle("dirty", dirty);
-    els.saveDocument.disabled = !dirty || state.editorSaving;
   }
 
   function setMode(mode) {
@@ -117,10 +111,7 @@
     els.footer.hidden = editing || !state.currentPath;
     els.readingMeta.hidden = editing;
     if (!editing) {
-      els.sourceEditor.value = "";
-      state.editorOriginal = "";
-      state.editorVersion = "";
-      state.editorWorkspace = "";
+      window.markdownReaderEditor.destroy();
       setEditorDirty(false);
     }
   }
@@ -140,16 +131,22 @@
         headers: { "X-Workspace-Token": state.workspaceToken },
       });
       if (state.currentPath !== requestedPath || state.project.root !== requestedWorkspace) return;
-      state.editorOriginal = data.source;
-      state.editorVersion = data.version;
-      state.editorWorkspace = data.workspace;
-      els.sourceEditor.value = data.source;
       els.editorPath.textContent = data.path;
       els.editorPath.title = data.path;
       setMode("edit");
+      await window.markdownReaderEditor.start({
+        source: data.source,
+        path: data.path,
+        workspace: data.workspace,
+        version: data.version,
+        onChange: () => {},
+        onDirtyChange: setEditorDirty,
+        onTocChange: renderToc,
+      });
       setEditorDirty(false);
-      requestAnimationFrame(() => els.sourceEditor.focus());
+      requestAnimationFrame(() => window.markdownReaderEditor.focus());
     } catch (error) {
+      setMode("read");
       showToast(error.message || "无法打开编辑模式");
     } finally {
       els.editMode.disabled = !state.project?.initialized;
@@ -164,41 +161,25 @@
     return true;
   }
 
-  async function saveDocument() {
-    if (state.mode !== "edit" || !state.editorDirty || state.editorSaving) return;
-    state.editorSaving = true;
-    els.saveDocument.disabled = true;
-    els.saveDocument.textContent = "保存中…";
-    els.editorState.textContent = "正在保存";
-    try {
-      const data = await getJSON("/api/source", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Workspace-Token": state.workspaceToken,
-        },
-        body: JSON.stringify({
-          path: state.currentPath,
-          source: els.sourceEditor.value,
-          version: state.editorVersion,
-          workspace: state.editorWorkspace,
-        }),
-      });
-      state.editorOriginal = data.source;
-      state.editorVersion = data.version;
-      setEditorDirty(false);
-      setMode("read");
-      await navigate(state.currentPath, "", { popstate: true, instant: true, skipEditorGuard: true });
-      showToast("文档已保存");
-    } catch (error) {
-      els.editorState.textContent = error.status === 409 ? "保存冲突" : "保存失败";
-      els.editorState.classList.add("dirty");
-      showToast(error.message || "保存失败");
-    } finally {
-      state.editorSaving = false;
-      els.saveDocument.textContent = "保存";
-      if (state.mode === "edit") els.saveDocument.disabled = !state.editorDirty;
+  async function finishEditing() {
+    if (state.mode !== "edit") return true;
+    if (window.markdownReaderEditor.hasUnsavedChanges()) {
+      const saved = await window.markdownReaderEditor.save();
+      if (!saved) {
+        showToast(window.markdownReaderEditor.hasConflict() ? "文件存在保存冲突，请先处理" : "保存失败，仍停留在编辑模式");
+        return false;
+      }
     }
+    setMode("read");
+    await navigate(state.currentPath, "", { popstate: true, instant: true, skipEditorGuard: true });
+    return true;
+  }
+
+  async function saveDocument() {
+    if (state.mode !== "edit") return false;
+    const saved = await window.markdownReaderEditor.save();
+    showToast(saved ? "文档已保存" : (window.markdownReaderEditor.hasConflict() ? "文件存在保存冲突" : "保存失败"));
+    return saved;
   }
 
   function escapeHtml(value) {
@@ -546,14 +527,17 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    let target = document.getElementById(anchor);
+    const scope = state.mode === "edit" ? document.querySelector("#richEditor") : els.content;
+    let target = scope?.querySelector(`#${CSS.escape(anchor)}`);
     if (!target) {
       const decoded = decodeURIComponent(anchor).toLocaleLowerCase();
-      target = [...els.content.querySelectorAll("h1,h2,h3,h4,h5,h6")].find((heading) => heading.textContent.trim().toLocaleLowerCase() === decoded);
+      target = [...scope.querySelectorAll("h1,h2,h3,h4,h5,h6")].find((heading) => heading.textContent.trim().toLocaleLowerCase() === decoded);
     }
     if (target) {
-      revealSectionFor(target);
-      revealListFor(target);
+      if (state.mode !== "edit") {
+        revealSectionFor(target);
+        revealListFor(target);
+      }
       target.scrollIntoView({ behavior: "smooth", block: "start" });
       if (updateHistory) history.replaceState({ path: state.currentPath }, "", `/?file=${encodeURIComponent(state.currentPath)}#${encodeURIComponent(target.id)}`);
     }
@@ -610,9 +594,12 @@
     }
   }
 
-  async function navigate(path, anchor = "", options = {}) {
+  async function navigate(path, anchor = "", options: any = {}) {
     if (state.mode === "edit" && !options.skipEditorGuard) {
-      if (!confirmEditorLeave()) return false;
+      if (window.markdownReaderEditor.hasUnsavedChanges()) {
+        const saved = await window.markdownReaderEditor.save();
+        if (!saved) return false;
+      }
       setMode("read");
     }
     hidePreview(true);
@@ -848,7 +835,10 @@
       els.workspaceError.hidden = false;
       return;
     }
-    if (state.mode === "edit" && !confirmEditorLeave()) return;
+    if (state.mode === "edit") {
+      if (window.markdownReaderEditor.hasUnsavedChanges() && !(await window.markdownReaderEditor.save())) return;
+      setMode("read");
+    }
     els.workspaceError.hidden = true;
     els.switchWorkspace.disabled = true;
     els.switchWorkspace.textContent = "打开中…";
@@ -892,20 +882,11 @@
   function bindUI() {
     els.fileSearch.addEventListener("input", () => renderTree(els.fileSearch.value));
     document.querySelector("#refreshDocument").addEventListener("click", () => navigate(state.currentPath, state.currentAnchor, { popstate: true, instant: true }));
-    els.readMode.addEventListener("click", cancelEditing);
+    els.readMode.addEventListener("click", finishEditing);
     els.editMode.addEventListener("click", enterEditMode);
     els.cancelEdit.addEventListener("click", cancelEditing);
     els.saveDocument.addEventListener("click", saveDocument);
     els.toggleAllSections.addEventListener("click", toggleAllSections);
-    els.sourceEditor.addEventListener("input", () => setEditorDirty(els.sourceEditor.value !== state.editorOriginal));
-    els.sourceEditor.addEventListener("keydown", (event) => {
-      if (event.key !== "Tab") return;
-      event.preventDefault();
-      const start = els.sourceEditor.selectionStart;
-      const end = els.sourceEditor.selectionEnd;
-      els.sourceEditor.setRangeText("  ", start, end, "end");
-      setEditorDirty(els.sourceEditor.value !== state.editorOriginal);
-    });
     document.querySelector("#toggleRight").addEventListener("click", () => document.body.classList.toggle("right-collapsed"));
     document.querySelector("#openLeft").addEventListener("click", () => document.body.classList.add("left-open"));
     document.querySelector("#closeLeft").addEventListener("click", () => document.body.classList.remove("left-open"));
@@ -955,9 +936,9 @@
           return;
         }
         document.body.classList.remove("left-open");
-        if (state.mode === "edit") cancelEditing();
+        if (state.mode === "edit" && !document.activeElement?.closest?.(".milkdown")) cancelEditing();
       }
-      if (event.key === "/" && !event.ctrlKey && !event.metaKey && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) {
+      if (event.key === "/" && !event.ctrlKey && !event.metaKey && !/INPUT|TEXTAREA/.test(document.activeElement.tagName) && !(document.activeElement as HTMLElement)?.isContentEditable) {
         event.preventDefault();
         els.fileSearch.focus();
       }
@@ -990,3 +971,5 @@
 
   init();
 })();
+
+export {};

@@ -10,9 +10,15 @@ htmlcov/
 
 # Build and package output
 build/
-dist/
+/dist/
 *.egg-info/
 *.whl
+
+# Frontend dependencies and generated reports
+frontend/node_modules/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
 
 # Virtual environments and local configuration
 .venv/
@@ -25,4 +31,3 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
-

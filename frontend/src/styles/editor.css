@@ -1,0 +1,122 @@
+.editor-mode-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--code-bg);
+}
+
+.editor-header-actions { display: flex; align-items: center; gap: 10px; }
+.insert-asset { min-height: 32px; padding: 0 11px; }
+
+.conflict-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 18px;
+  border-bottom: 1px solid #f2c6c6;
+  color: #8b1e1e;
+  background: #fff4f3;
+}
+
+.conflict-banner[hidden] { display: none; }
+.conflict-banner > div:first-child { display: flex; flex-direction: column; gap: 2px; }
+.conflict-banner span { font-size: 12px; }
+.conflict-actions { display: flex; gap: 8px; }
+
+.editor-mode-button {
+  min-width: 56px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--ink-secondary);
+  background: transparent;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.editor-mode-button.active {
+  color: #245bdb;
+  background: var(--canvas);
+  box-shadow: 0 1px 3px rgba(31, 35, 41, 0.12);
+  font-weight: 600;
+}
+
+.rich-editor {
+  min-height: 560px;
+  padding: 18px clamp(22px, 5vw, 64px) 80px;
+  background: var(--canvas);
+}
+
+.rich-editor[hidden], .source-editor[hidden] { display: none; }
+
+.rich-editor .milkdown,
+.rich-editor .ProseMirror {
+  min-height: 500px;
+  color: var(--ink);
+  background: transparent;
+}
+
+.rich-editor .ProseMirror {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 0;
+  outline: none;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.82;
+}
+
+.rich-editor .ProseMirror h1,
+.rich-editor .ProseMirror h2,
+.rich-editor .ProseMirror h3,
+.rich-editor .ProseMirror h4,
+.rich-editor .ProseMirror h5,
+.rich-editor .ProseMirror h6 {
+  color: var(--ink);
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+
+.rich-editor .ProseMirror h1 { margin: 0 0 28px; font-size: 36px; }
+.rich-editor .ProseMirror h2 { margin: 48px 0 18px; font-size: 26px; }
+.rich-editor .ProseMirror h3 { margin: 34px 0 14px; font-size: 21px; }
+.rich-editor .ProseMirror blockquote { margin: 22px 0; padding: 1px 0 1px 18px; border-left: 3px solid #b8c8ef; color: var(--ink-secondary); }
+.rich-editor .ProseMirror pre { overflow: auto; padding: 17px 19px; border: 1px solid #e5e7ea; border-radius: 8px; background: var(--code-bg); }
+.rich-editor .ProseMirror img { max-width: 100%; border-radius: 6px; }
+.rich-editor .ProseMirror table { width: 100%; border-collapse: collapse; }
+.rich-editor .ProseMirror th,
+.rich-editor .ProseMirror td { padding: 9px 12px; border: 1px solid #dfe2e6; }
+
+.section-drag-handle {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin: 4px 0 0 -34px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink-tertiary);
+  background: transparent;
+  opacity: 0;
+  cursor: grab;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.rich-editor .ProseMirror h1:hover > .section-drag-handle,
+.rich-editor .ProseMirror h2:hover > .section-drag-handle,
+.rich-editor .ProseMirror h3:hover > .section-drag-handle,
+.rich-editor .ProseMirror h4:hover > .section-drag-handle,
+.rich-editor .ProseMirror h5:hover > .section-drag-handle,
+.rich-editor .ProseMirror h6:hover > .section-drag-handle,
+.section-drag-handle:hover,
+.section-drag-handle:focus-visible { opacity: 1; background: var(--hover); }
+
+.section-drag-handle:active { cursor: grabbing; }
+
+@media (max-width: 720px) {
+  .rich-editor { padding: 12px 14px 60px; }
+  .rich-editor .ProseMirror { font-size: 15px; }
+}

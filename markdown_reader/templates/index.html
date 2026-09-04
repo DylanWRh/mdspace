@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <title>{{ project_name }} · Markdown Reader</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    {% for stylesheet in frontend_assets.styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename=stylesheet) }}">
+    {% endfor %}
     <script defer src="{{ url_for('static', filename='vendor/mermaid.min.js') }}"></script>
     <script defer src="{{ url_for('static', filename='vendor/mathjax/tex-svg.js') }}"></script>
-    <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename=frontend_assets.script) }}"></script>
   </head>
   <body data-project-name="{{ project_name }}" data-initial-file="{{ initial_file }}" data-workspace-token="{{ workspace_switch_token }}">
     <div class="reading-progress" id="readingProgress"></div>
@@ -82,17 +84,37 @@
           <span class="loading-spinner"></span><span>正在打开文档…</span>
         </div>
         <article class="markdown-body" id="documentContent"></article>
-        <section class="editor-shell" id="editorShell" aria-label="Markdown 编辑器" hidden>
+        <section class="editor-shell" id="editorShell" aria-label="文档编辑器" hidden>
           <header class="editor-header">
             <div>
-              <span class="editor-label">MARKDOWN SOURCE</span>
+              <span class="editor-label">DOCUMENT EDITOR</span>
               <strong id="editorPath"></strong>
             </div>
-            <span class="editor-state" id="editorState">未修改</span>
+            <div class="editor-header-actions">
+              <button class="secondary-button insert-asset" id="insertAsset" type="button">插入文件</button>
+              <input id="assetInput" type="file" multiple hidden>
+              <div class="editor-mode-switch" role="group" aria-label="编辑器模式">
+                <button class="editor-mode-button active" id="richEditorMode" type="button" aria-pressed="true">富文本</button>
+                <button class="editor-mode-button" id="sourceEditorMode" type="button" aria-pressed="false">源码</button>
+              </div>
+              <span class="editor-state" id="editorState">已保存</span>
+            </div>
           </header>
-          <textarea class="source-editor" id="sourceEditor" aria-label="Markdown 源码" spellcheck="false"></textarea>
+          <div class="conflict-banner" id="conflictBanner" role="alert" hidden>
+            <div>
+              <strong>磁盘上的文件已经改变</strong>
+              <span>本地编辑内容仍保留，自动保存已暂停。</span>
+            </div>
+            <div class="conflict-actions">
+              <button class="secondary-button" id="sourceConflict" type="button">查看源码</button>
+              <button class="secondary-button" id="copyConflict" type="button">复制当前内容</button>
+              <button class="primary-button" id="reloadConflict" type="button">重新载入磁盘版本</button>
+            </div>
+          </div>
+          <div class="rich-editor" id="richEditor" aria-label="富文本 Markdown 编辑器"></div>
+          <textarea class="source-editor" id="sourceEditor" aria-label="Markdown 源码" spellcheck="false" hidden></textarea>
           <footer class="editor-footer">
-            <span>支持 Tab 缩进</span>
+            <span>Markdown 始终是磁盘上的唯一文档格式</span>
             <span><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>S</kbd> 保存</span>
           </footer>
         </section>

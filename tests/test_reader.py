@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-import sys
+from unittest.mock import Mock, patch
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -14,7 +16,7 @@ from markdown_reader import (  # noqa: E402
     find_initial_markdown,
     render_document,
 )
-from markdown_reader.app import parse_args  # noqa: E402
+from markdown_reader.app import open_browser_quietly, parse_args  # noqa: E402
 
 
 class ReaderTestCase(unittest.TestCase):
@@ -350,6 +352,30 @@ Inline <audio src="../assets/demo.mp3"></audio> and <img src="../assets/raw.png"
 
     def test_readmd_accepts_no_directory(self) -> None:
         self.assertIsNone(parse_args([]).directory)
+
+    @patch("markdown_reader.app.subprocess.run")
+    def test_browser_launcher_suppresses_platform_probe_output(self, run: Mock) -> None:
+        run.return_value = Mock(returncode=0)
+
+        self.assertTrue(open_browser_quietly("http://127.0.0.1:8765/"))
+
+        _, kwargs = run.call_args
+        self.assertEqual(kwargs["stdin"], subprocess.DEVNULL)
+        self.assertEqual(kwargs["stdout"], subprocess.DEVNULL)
+        self.assertEqual(kwargs["stderr"], subprocess.DEVNULL)
+        self.assertFalse(kwargs["check"])
+
+    @patch("markdown_reader.app.subprocess.run")
+    def test_browser_launcher_reports_failure_without_raising(self, run: Mock) -> None:
+        run.return_value = Mock(returncode=1)
+
+        self.assertFalse(open_browser_quietly("http://127.0.0.1:8765/"))
+
+    @patch("markdown_reader.app.subprocess.run")
+    def test_browser_launcher_handles_missing_command(self, run: Mock) -> None:
+        run.side_effect = OSError("browser launcher unavailable")
+
+        self.assertFalse(open_browser_quietly("http://127.0.0.1:8765/"))
 
 
 class EmptyReaderTestCase(unittest.TestCase):

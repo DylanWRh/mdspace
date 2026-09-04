@@ -54,7 +54,8 @@ Local Markdown Reader
 * 代码语法高亮
 * 表格、任务列表、脚注
 * Mermaid 流程图
-* MathJax 数学公式
+* 使用 `$...$`、`$$...$$`、`\(...\)` 或 `\[...\]` 的 MathJax 数学公式
+* 明确的粗体、斜体、删除线与行内代码样式
 * 本地图片和 SVG 文件
 
 ### 舒适的阅读体验
@@ -165,6 +166,19 @@ readmd <directory> --initial <markdown-file>
 
 ```bash
 readmd <directory> --port 9000 --no-browser
+```
+
+### 浏览器启动
+
+默认情况下，`readmd` 会请求操作系统使用默认浏览器打开 Reader URL。本地
+服务本身并不依赖浏览器自动启动。如果系统没有安装图形浏览器，例如精简版
+Linux、容器、SSH 或远程开发环境，请将 `readmd` 输出的 URL 复制到能够访问
+该服务的浏览器中。
+
+浏览器检测失败会被安静处理。如需完全跳过自动启动，请使用：
+
+```bash
+readmd <directory> --no-browser
 ```
 
 ## 设计理念

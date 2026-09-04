@@ -4,8 +4,9 @@ import argparse
 import json
 import mimetypes
 import secrets
+import subprocess
+import sys
 import threading
-import webbrowser
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -40,6 +41,10 @@ from .workspace import (
 
 
 FRONTEND_MANIFEST = Path(__file__).parent / "static" / "dist" / "manifest.json"
+_BROWSER_OPEN_SCRIPT = (
+    "import sys, webbrowser; "
+    "raise SystemExit(0 if webbrowser.open(sys.argv[1]) else 1)"
+)
 
 
 def frontend_assets() -> dict[str, Any]:
@@ -55,6 +60,37 @@ def frontend_assets() -> dict[str, Any]:
         raise RuntimeError(
             "Compiled frontend assets are missing. Run `npm run build` in frontend/."
         ) from exc
+
+
+def open_browser_quietly(url: str) -> bool:
+    """Ask the platform browser launcher to open *url* without noisy probing."""
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-c", _BROWSER_OPEN_SCRIPT, url],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return completed.returncode == 0
+
+
+def schedule_browser_open(url: str) -> None:
+    """Open the reader after startup without keeping the server process alive."""
+
+    def launch() -> None:
+        if not open_browser_quietly(url):
+            print(
+                "  Browser was not opened automatically. Use the URL above manually.",
+                file=sys.stderr,
+            )
+
+    timer = threading.Timer(0.8, launch)
+    timer.daemon = True
+    timer.start()
 
 
 def create_app(
@@ -359,7 +395,7 @@ def main(argv: list[str] | None = None) -> None:
     print(f"\n  Markdown Reader  {url}")
     print(f"  Project root     {config.root if config else 'Choose in browser'}\n")
     if not args.no_browser:
-        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+        schedule_browser_open(url)
     app.run(host=args.host, port=args.port, debug=False, threaded=True)
 
 

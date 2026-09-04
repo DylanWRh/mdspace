@@ -52,7 +52,8 @@ Supports:
 * Code syntax highlighting
 * Tables, task lists, and footnotes
 * Mermaid diagrams
-* MathJax mathematical expressions
+* MathJax expressions using `$...$`, `$$...$$`, `\(...\)`, or `\[...\]`
+* Explicit bold, italic, strikethrough, and inline-code styling
 * Local images and SVG assets
 
 ### Comfortable Reading Experience
@@ -164,6 +165,21 @@ Additional options:
 
 ```bash
 readmd <directory> --port 9000 --no-browser
+```
+
+### Browser startup
+
+By default, `readmd` asks the operating system to open the reader URL in the
+default browser. The local server does not depend on this automatic launch. If
+no graphical browser is installed—for example in a minimal Linux, container,
+SSH, or remote development environment—copy the URL printed by `readmd` into a
+browser on the machine that can reach the server.
+
+Browser detection failures are handled quietly. To skip the automatic launch
+entirely, use:
+
+```bash
+readmd <directory> --no-browser
 ```
 
 ## Design Philosophy

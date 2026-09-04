@@ -90,6 +90,58 @@
 .rich-editor .ProseMirror th,
 .rich-editor .ProseMirror td { padding: 9px 12px; border: 1px solid #dfe2e6; }
 
+.rich-editor .ProseMirror .media-html-source { display: none; }
+
+.rich-editor .ProseMirror .media-html-node {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(100%, 760px);
+  margin: 18px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  box-sizing: border-box;
+}
+
+.rich-editor .ProseMirror .media-html-node video {
+  width: 100%;
+  max-height: 480px;
+  border-radius: 6px;
+  background: #111827;
+}
+
+.rich-editor .ProseMirror .media-html-node audio { width: 100%; }
+
+.rich-editor .ProseMirror .media-html-label {
+  overflow: hidden;
+  color: var(--ink-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rich-editor .ProseMirror .attachment-card {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  margin: 3px 0;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: #245bdb;
+  background: var(--surface);
+  text-decoration: none;
+}
+
+.rich-editor .ProseMirror .attachment-card::before {
+  content: "↧";
+  margin-right: 7px;
+  color: var(--ink-tertiary);
+}
+
 .section-drag-handle {
   position: absolute;
   width: 28px;

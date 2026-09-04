@@ -2,19 +2,22 @@ import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
 import { codeMirror } from "@milkdown/crepe/feature/code-mirror";
 import { cursor } from "@milkdown/crepe/feature/cursor";
-import { imageBlock } from "@milkdown/crepe/feature/image-block";
 import { latex } from "@milkdown/crepe/feature/latex";
 import { linkTooltip } from "@milkdown/crepe/feature/link-tooltip";
 import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
 import { table } from "@milkdown/crepe/feature/table";
 import { toolbar } from "@milkdown/crepe/feature/toolbar";
-import { insert, replaceAll } from "@milkdown/kit/utils";
+import { editorViewCtx, parserCtx } from "@milkdown/kit/core";
+import { TextSelection } from "@milkdown/kit/prose/state";
+import { replaceAll } from "@milkdown/kit/utils";
 
 import type { AssetResponse } from "../api/assets";
-import { rawAssetUrl } from "../app/paths";
 import { assetMarkdown } from "./media";
 import { sectionDrag } from "./extensions/section-drag";
+import { mediaPreview } from "./extensions/media-preview";
+import { imagePreview } from "./extensions/image-preview";
+import { richBlockEditConfig } from "./slash-menu";
 
 export interface RichEditorOptions {
   root: HTMLElement;
@@ -30,14 +33,22 @@ export class RichDocumentEditor {
   private uploadFile: ((file: File) => Promise<AssetResponse>) | null = null;
   private dropRoot: HTMLElement | null = null;
   private readonly handleDragOver = (event: DragEvent) => {
-    if ([...(event.dataTransfer?.files ?? [])].some((file) => !file.type.startsWith("image/"))) {
-      event.preventDefault();
-    }
+    if (!(event.dataTransfer?.files.length)) return;
+    event.preventDefault();
+    event.stopPropagation();
   };
   private readonly handleDrop = (event: DragEvent) => {
     const files = [...(event.dataTransfer?.files ?? [])];
-    if (!files.some((file) => !file.type.startsWith("image/"))) return;
+    if (!files.length) return;
     event.preventDefault();
+    event.stopPropagation();
+    void this.insertFiles(files);
+  };
+  private readonly handlePaste = (event: ClipboardEvent) => {
+    const files = [...(event.clipboardData?.files ?? [])];
+    if (!files.length) return;
+    event.preventDefault();
+    event.stopPropagation();
     void this.insertFiles(files);
   };
 
@@ -49,22 +60,13 @@ export class RichDocumentEditor {
       defaultValue: options.markdown,
     });
     crepe.editor.use(sectionDrag);
+    crepe.editor.use(mediaPreview(options.documentPath));
+    crepe.editor.use(imagePreview(options.documentPath));
     crepe
       .addFeature(cursor)
       .addFeature(listItem)
       .addFeature(linkTooltip)
-      .addFeature(imageBlock, {
-        onUpload: async (file) => (await options.uploadFile(file)).relativePath,
-        proxyDomURL: (url) => rawAssetUrl(options.documentPath, url),
-        inlineUploadButton: "Upload image",
-        blockUploadButton: "Upload image",
-        blockCaptionPlaceholderText: "Image caption",
-      })
-      .addFeature(blockEdit, {
-        textGroup: { label: "Text" },
-        listGroup: { label: "Lists" },
-        advancedGroup: { label: "Insert" },
-      })
+      .addFeature(blockEdit, richBlockEditConfig)
       .addFeature(placeholder, { text: "Type / for commands", mode: "block" })
       .addFeature(toolbar)
       .addFeature(codeMirror, { languages: [] })
@@ -79,13 +81,9 @@ export class RichDocumentEditor {
     this.crepe = crepe;
     this.uploadFile = options.uploadFile;
     this.dropRoot = options.root;
-    options.root.addEventListener("dragover", this.handleDragOver);
-    options.root.addEventListener("drop", this.handleDrop);
-
-    options.root.querySelectorAll<HTMLImageElement>("img[src]").forEach((image) => {
-      const source = image.getAttribute("src");
-      if (source) image.src = rawAssetUrl(options.documentPath, source);
-    });
+    options.root.addEventListener("dragover", this.handleDragOver, true);
+    options.root.addEventListener("drop", this.handleDrop, true);
+    options.root.addEventListener("paste", this.handlePaste, true);
   }
 
   getMarkdown(): string {
@@ -101,9 +99,31 @@ export class RichDocumentEditor {
 
   async insertFiles(files: Iterable<File>): Promise<void> {
     if (!this.crepe || !this.uploadFile) return;
+    const blocks: string[] = [];
     for (const file of files) {
       const asset = await this.uploadFile(file);
-      this.crepe.editor.action(insert(`${assetMarkdown(asset, file.name)}\n`));
+      blocks.push(assetMarkdown(asset, file.name));
+    }
+    if (blocks.length) this.insertMarkdownBlocks(`${blocks.join("\n\n")}\n`);
+  }
+
+  private insertMarkdownBlocks(markdown: string): void {
+    const before = this.getMarkdown();
+    this.crepe?.editor.action((ctx) => {
+      const parsed = ctx.get(parserCtx)(markdown);
+      if (!parsed) return;
+      const view = ctx.get(editorViewCtx);
+      const { $to } = view.state.selection;
+      const position = $to.depth > 0 ? $to.after(1) : $to.pos;
+      let transaction = view.state.tr.insert(position, parsed.content);
+      transaction = transaction.setSelection(
+        TextSelection.near(transaction.doc.resolve(position + parsed.content.size), -1),
+      );
+      view.dispatch(transaction.scrollIntoView());
+    });
+    if (this.getMarkdown() === before) {
+      const next = `${before.trimEnd()}\n\n${markdown.trim()}\n`;
+      this.crepe?.editor.action(replaceAll(next, true));
     }
   }
 
@@ -116,8 +136,9 @@ export class RichDocumentEditor {
     const current = this.crepe;
     this.crepe = null;
     this.uploadFile = null;
-    this.dropRoot?.removeEventListener("dragover", this.handleDragOver);
-    this.dropRoot?.removeEventListener("drop", this.handleDrop);
+    this.dropRoot?.removeEventListener("dragover", this.handleDragOver, true);
+    this.dropRoot?.removeEventListener("drop", this.handleDrop, true);
+    this.dropRoot?.removeEventListener("paste", this.handlePaste, true);
     this.dropRoot = null;
     if (current) await current.destroy();
   }

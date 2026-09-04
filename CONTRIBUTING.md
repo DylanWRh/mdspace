@@ -9,10 +9,9 @@ Local Markdown Reader has two build layers but one runtime application:
 
 ## Python setup
 
-Use Python 3.10 or newer. With the project Conda environment:
+Use Python 3.10 or newer:
 
 ```bash
-conda activate py310
 python -m pip install -e .
 python -m pytest
 ```
@@ -37,7 +36,7 @@ npm run dev
 Then run Flask in a second terminal:
 
 ```bash
-conda run -n py310 readmd . --no-browser
+readmd . --no-browser
 ```
 
 The frontend watcher writes only compiled assets into the Python package. Node
@@ -53,8 +52,8 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-The test server creates a temporary Markdown workspace under `/tmp`; browser
-tests do not edit repository documents.
+The test server creates a Markdown workspace in the operating system's
+temporary directory; browser tests do not edit repository documents.
 
 ## Distribution verification
 
@@ -65,7 +64,7 @@ cd frontend
 npm ci
 npm run build
 cd ..
-conda run -n py310 python -m build
+python -m build
 ```
 
 Verify that the wheel contains `markdown_reader/static/dist/manifest.json` and

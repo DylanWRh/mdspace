@@ -8,7 +8,7 @@ from pathlib import Path
 from markdown_reader import ReaderConfig, create_app
 
 
-ROOT_MARKER = Path("/tmp/markdown-reader-browser-root")
+ROOT_MARKER = Path(tempfile.gettempdir()) / "markdown-reader-browser-root"
 
 
 def main() -> None:

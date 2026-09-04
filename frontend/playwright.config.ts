@@ -18,7 +18,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "conda run -n py310 python ../tests/browser_server.py --port 8766",
+    command: "python ../tests/browser_server.py --port 8766",
     url: "http://127.0.0.1:8766/api/project",
     timeout: 30_000,
     reuseExistingServer: false,

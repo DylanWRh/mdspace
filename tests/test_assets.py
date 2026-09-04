@@ -69,8 +69,9 @@ class AssetApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_document_traversal_and_absolute_paths_are_rejected(self) -> None:
+        outside_workspace = (self.root.parent / "outside.md").resolve()
         self.assertEqual(self.upload(document="../outside.md").status_code, 404)
-        self.assertEqual(self.upload(document="/etc/passwd").status_code, 404)
+        self.assertEqual(self.upload(document=str(outside_workspace)).status_code, 404)
 
     def test_distinct_same_named_files_do_not_overwrite(self) -> None:
         first = self.upload(content=b"first").get_json()

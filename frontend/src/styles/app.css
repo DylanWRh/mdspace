@@ -238,7 +238,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visib
 .tree-row { position: relative; display: flex; align-items: center; min-width: 0; height: 32px; padding: 0 8px; border-radius: 6px; color: var(--ink-secondary); font-size: 13px; cursor: pointer; user-select: none; }
 .tree-row:hover { color: var(--ink); background: #eceef0; }
 .tree-row.active { color: #245bdb; background: #e5edff; font-weight: 550; }
-.tree-row.filtered-match { color: var(--ink); }
 .tree-toggle { display: inline-grid; flex: 0 0 16px; place-items: center; width: 16px; margin-right: 1px; color: #999fa7; transition: transform 130ms ease; }
 .tree-group.collapsed > .tree-row .tree-toggle { transform: rotate(-90deg); }
 .tree-group.collapsed > .tree-children { display: none; }

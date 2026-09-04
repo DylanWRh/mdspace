@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const workspaceRoot = () => readFileSync("/tmp/markdown-reader-browser-root", "utf8").trim();
+const rootMarker = join(tmpdir(), "markdown-reader-browser-root");
+const workspaceRoot = () => readFileSync(rootMarker, "utf8").trim();
 const readmePath = () => join(workspaceRoot(), "README.md");
 
 const roundTripCases: Record<string, string[]> = {
@@ -51,6 +53,21 @@ Inline \(x^2 + y^2\) and *italic text*.
   const emphasis = page.locator("#documentContent em");
   await expect(emphasis).toHaveText("italic text");
   await expect(emphasis).toHaveCSS("font-style", "italic");
+});
+
+test("loads packaged math fonts from the static asset directory", async ({ page }) => {
+  const fontStatuses: number[] = [];
+  page.on("response", (response) => {
+    if (/KaTeX_.+\.(?:woff2?|ttf)$/.test(response.url())) {
+      fontStatuses.push(response.status());
+    }
+  });
+
+  await page.goto("/?file=fixtures/math.md");
+  await page.locator("#editMode").click();
+  await expect(page.locator(".rich-editor .katex").first()).toBeVisible();
+  await expect.poll(() => fontStatuses.length).toBeGreaterThan(0);
+  expect(fontStatuses.every((status) => status === 200)).toBe(true);
 });
 
 test("edits rich content, autosaves, and returns to read mode", async ({ page }) => {

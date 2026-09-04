@@ -68,14 +68,19 @@ Provides:
 * Collapsible sections
 * Print-friendly styles
 
-### Lightweight Editing (Optional)
+### Rich Markdown Editing
 
-Reading is the primary workflow, but lightweight editing is also supported:
+Read and write in the same focused workspace while Markdown remains the only
+canonical document format:
 
-* Edit Markdown source directly
-* Save or discard changes
-* Detect external file modifications
-* Prevent accidental overwrites
+* Edit rendered-looking paragraphs, headings, lists, links, code, tables, and math directly
+* Use slash commands and a compact selection toolbar
+* Reorder individual blocks or drag a heading together with its complete section
+* Drop or paste images and attach video, audio, PDFs, and other local files
+* Store media beside the document with portable relative Markdown paths
+* Switch between Rich and Source editing without saving or losing the current session
+* Autosave conservatively while preserving explicit `Ctrl`/`Cmd` + `S`
+* Detect external file modifications and stop before overwriting them
 
 ## Use Cases
 
@@ -132,6 +137,9 @@ For development:
 python -m pip install -e .
 ```
 
+Prebuilt frontend assets are included in the Python package, so Node.js is not
+required for normal installation or use.
+
 ## Usage
 
 Open a workspace:
@@ -178,3 +186,40 @@ A Markdown project is more than a single file. The reader treats the whole direc
 * Binds to `127.0.0.1`
 * Only accesses the selected workspace
 * Does not upload document contents
+
+## Development
+
+Python development uses Python 3.10 or newer:
+
+```bash
+python -m pip install -e .
+python -m pytest
+```
+
+The browser application is built with TypeScript, Vite, Milkdown, and Crepe:
+
+```bash
+cd frontend
+npm install
+npm run typecheck
+npm test
+npm run build
+```
+
+`npm run dev` watches the frontend and continuously rebuilds the packaged
+assets. Run `readmd . --no-browser` in another terminal while developing.
+
+Browser smoke tests use Playwright:
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+Build distributable Python artifacts after the frontend build:
+
+```bash
+python -m build
+```
+
+See `CONTRIBUTING.md` for the full workflow and architecture notes.

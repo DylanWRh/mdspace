@@ -71,14 +71,18 @@ Local Markdown Reader
 * 分章节折叠
 * 打印友好模式
 
-### 可选的轻量编辑
+### Markdown 富文本编辑
 
-阅读是主要工作流，同时支持简单编辑：
+在同一个专注工作区中阅读和写作，同时始终以 Markdown 作为唯一文档格式：
 
-* 直接修改 Markdown 源文件
-* 保存或放弃修改
-* 检测外部文件变化
-* 避免意外覆盖
+* 直接编辑接近渲染效果的段落、标题、列表、链接、代码、表格和公式
+* 使用斜杠命令与轻量级选区工具栏
+* 拖动单个块，或连同完整内容一起移动标题章节
+* 拖放、粘贴图片，并插入视频、音频、PDF 和其他本地文件
+* 将资源保存在文档旁边，并写入可移植的相对路径
+* 在富文本与 Markdown 源码之间切换而不触发保存
+* 保守自动保存，同时保留 `Ctrl`/`Cmd` + `S`
+* 检测外部文件修改，发生冲突时停止覆盖
 
 ## 使用场景
 
@@ -135,6 +139,8 @@ python -m pip install .
 python -m pip install -e .
 ```
 
+Python 安装包已经包含编译后的前端资源，普通安装和使用不需要 Node.js。
+
 ## 使用方式
 
 打开一个 Markdown 项目：
@@ -181,3 +187,40 @@ Markdown 文件是唯一真实来源，Reader 只负责提供更好的展示体�
 * 默认绑定 `127.0.0.1`
 * 只访问用户主动选择的 workspace
 * 不上传任何文档内容
+
+## 开发
+
+Python 端要求 Python 3.10 或更高版本：
+
+```bash
+python -m pip install -e .
+python -m pytest
+```
+
+浏览器端使用 TypeScript、Vite、Milkdown 和 Crepe：
+
+```bash
+cd frontend
+npm install
+npm run typecheck
+npm test
+npm run build
+```
+
+`npm run dev` 会监听前端源文件并持续重新生成 Python 包内的静态资源。
+开发时可在另一个终端运行 `readmd . --no-browser`。
+
+Playwright 浏览器冒烟测试：
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+前端构建完成后生成 Python 分发包：
+
+```bash
+python -m build
+```
+
+完整流程与架构说明见 `CONTRIBUTING.md`。

@@ -3,7 +3,13 @@ import { EditorState } from "@milkdown/kit/prose/state";
 import { history, redo, undo } from "@milkdown/kit/prose/history";
 import { describe, expect, it } from "vitest";
 
-import { findSectionDropTarget, findSectionRange, moveSection } from "./section-drag";
+import {
+  findBlockMoveTarget,
+  findSectionDropTarget,
+  findSectionMoveTarget,
+  findSectionRange,
+  moveSection,
+} from "./section-drag";
 
 const schema = new Schema({
   nodes: {
@@ -79,6 +85,23 @@ describe("section ranges", () => {
 });
 
 describe("section movement", () => {
+  it("finds keyboard targets around peer sections", () => {
+    const doc = fixture();
+    const [a, , , , c] = positions(doc);
+    expect(findSectionMoveTarget(doc, a, -1)).toBeNull();
+    expect(findSectionMoveTarget(doc, a, 1)).toBe(doc.content.size);
+    expect(findSectionMoveTarget(doc, c, -1)).toBe(a);
+    expect(findSectionMoveTarget(doc, c, 1)).toBeNull();
+  });
+
+  it("finds keyboard targets for individual top-level blocks", () => {
+    const doc = fixture();
+    const [a, p1, b] = positions(doc);
+    expect(findBlockMoveTarget(doc, a, -1)).toBeNull();
+    expect(findBlockMoveTarget(doc, p1, -1)).toBe(a);
+    expect(findBlockMoveTarget(doc, p1, 1)).toBe(b + doc.nodeAt(b)!.nodeSize);
+  });
+
   it("moves a whole section downward in one transaction", () => {
     const doc = fixture();
     const [a] = positions(doc);

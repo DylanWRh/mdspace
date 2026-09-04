@@ -45,7 +45,7 @@ test("edits rich content, autosaves, and returns to read mode", async ({ page })
   await expect(page.locator("#editorState")).toHaveText("有未保存更改");
   await expect(page.locator("#editorState")).toHaveText("已保存", { timeout: 10_000 });
 
-  await page.locator("#readMode").click();
+  await page.locator("#finishEdit").click();
   await expect(page.locator("#documentContent")).toContainText("Editable paragraph. Updated.");
   expect(readFileSync(readmePath(), "utf8")).toContain("Editable paragraph. Updated.");
 });
@@ -111,8 +111,8 @@ test("does not silently lose extended Markdown during rich to source conversion"
 
 test("drags a heading together with its complete section", async ({ page }) => {
   await page.locator("#editMode").click();
-  const method = page.getByRole("button", { name: "Move section: Method" });
-  const results = page.getByRole("button", { name: "Move section: Results" });
+  const method = page.getByRole("button", { name: "移动章节：Method" });
+  const results = page.getByRole("button", { name: "移动章节：Results" });
   await expect(method).toBeAttached();
   await expect(results).toBeAttached();
   await results.dragTo(method);
@@ -130,7 +130,7 @@ test("creates a Mermaid fence from the dedicated slash command", async ({ page }
   await page.keyboard.press("End");
   await page.keyboard.press("Enter");
   await page.keyboard.type("/mermaid");
-  const command = page.locator(".milkdown-slash-menu li").filter({ hasText: "Mermaid Diagram" });
+  const command = page.locator(".milkdown-slash-menu li").filter({ hasText: "Mermaid 图表" });
   await expect(command).toBeVisible();
   await command.click();
 
@@ -168,7 +168,7 @@ test("renders uploaded video, audio, and attachments as portable rich blocks", a
   expect(markdown).toMatch(/\[paper\.pdf]\(\.\/assets\/README\/paper-[a-f0-9]+\.pdf\)/);
   expect(markdown).not.toContain("/api/raw");
 
-  await page.locator("#readMode").click();
+  await page.locator("#finishEdit").click();
   await expect(page.locator("#documentContent video[controls]")).toBeVisible();
   await expect(page.locator("#documentContent audio[controls]")).toBeVisible();
   await expect(page.locator("#documentContent a.asset-link").filter({ hasText: "paper.pdf" })).toBeVisible();
@@ -195,12 +195,231 @@ test("drags an ordinary paragraph without moving its heading section", async ({ 
   await result.hover();
   const handle = page.locator('.milkdown-block-handle[data-show="true"]');
   await expect(handle).toBeVisible();
-  await handle.dragTo(first);
+  const targetBox = await first.boundingBox();
+  expect(targetBox).not.toBeNull();
+  const transfer = await page.evaluateHandle(() => new DataTransfer());
+  await handle.dispatchEvent("mousedown", { button: 0 });
+  await handle.dispatchEvent("dragstart", { dataTransfer: transfer });
+  await first.dispatchEvent("dragenter", { dataTransfer: transfer });
+  await first.dispatchEvent("dragover", {
+    dataTransfer: transfer,
+    clientX: targetBox!.x + 24,
+    clientY: targetBox!.y + 6,
+  });
+  await first.dispatchEvent("drop", {
+    dataTransfer: transfer,
+    clientX: targetBox!.x + 24,
+    clientY: targetBox!.y + 6,
+  });
+  await handle.dispatchEvent("dragend", { dataTransfer: transfer });
 
   await page.locator("#sourceEditorMode").click();
   const markdown = await page.locator("#sourceEditor").inputValue();
   expect(markdown.indexOf("Result text.")).toBeLessThan(markdown.indexOf("Editable paragraph."));
   expect(markdown.indexOf("## Results")).toBeGreaterThan(markdown.indexOf("Editable paragraph."));
+});
+
+test("renders bounded editor popovers with discoverable controls", async ({ page }) => {
+  await page.locator("#editMode").click();
+  const editor = page.locator(".rich-editor .ProseMirror");
+  const paragraph = editor.locator("p").filter({ hasText: "Editable paragraph." }).first();
+  await paragraph.click();
+  await page.keyboard.press("End");
+  await page.keyboard.down("Shift");
+  await page.keyboard.press("Home");
+  await page.keyboard.up("Shift");
+
+  const toolbar = page.locator(".milkdown-toolbar");
+  await expect(toolbar).toBeVisible();
+  const toolbarStyle = await toolbar.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      background: style.backgroundColor,
+      border: style.borderTopWidth,
+      shadow: style.boxShadow,
+      zIndex: Number(style.zIndex),
+    };
+  });
+  expect(toolbarStyle.background).not.toBe("rgba(0, 0, 0, 0)");
+  expect(toolbarStyle.background).not.toBe("transparent");
+  expect(toolbarStyle.border === "1px" || toolbarStyle.shadow !== "none").toBe(true);
+  expect(toolbarStyle.zIndex).toBeGreaterThan(70);
+  const toolbarBox = await toolbar.boundingBox();
+  expect(toolbarBox).not.toBeNull();
+  expect(toolbarBox!.x).toBeGreaterThanOrEqual(0);
+  expect(toolbarBox!.x + toolbarBox!.width).toBeLessThanOrEqual(1280);
+
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("/");
+  const slashMenu = page.locator(".milkdown-slash-menu");
+  await expect(slashMenu).toBeVisible();
+  const slashStyle = await slashMenu.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { background: style.backgroundColor, border: style.borderTopWidth, shadow: style.boxShadow };
+  });
+  expect(slashStyle.background).not.toBe("rgba(0, 0, 0, 0)");
+  expect(slashStyle.border === "1px" || slashStyle.shadow !== "none").toBe(true);
+
+  const sectionHandle = page.getByRole("button", { name: "移动章节：Method" });
+  await expect(sectionHandle).toBeVisible();
+  await sectionHandle.click();
+  await page.keyboard.press("Tab");
+  const sectionAction = page.getByRole("button", { name: "上移章节：Method" });
+  await sectionAction.focus();
+  await expect(sectionAction).toBeFocused();
+  const handleStyle = await sectionAction.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { outline: style.outlineStyle };
+  });
+  expect(handleStyle.outline).not.toBe("none");
+});
+
+test("supports source navigation, wrapping, and indentation", async ({ page }) => {
+  await page.locator("#editMode").click();
+  await page.locator("#sourceEditorMode").click();
+  const source = page.locator("#sourceEditor");
+  await source.fill("# Title\n\n  indented\nnext");
+  await source.evaluate((element: HTMLTextAreaElement) => {
+    element.setSelectionRange(11, 21);
+    element.dispatchEvent(new Event("select"));
+  });
+  await expect(page.locator("#sourcePosition")).toContainText("第 3 行");
+  await source.press("Shift+Tab");
+  await expect(source).toHaveValue("# Title\n\nindented\nnext");
+
+  await page.locator("#toggleSourceWrap").click();
+  await expect(page.locator("#toggleSourceWrap")).toHaveAttribute("aria-pressed", "false");
+  await expect(source).toHaveClass(/no-wrap/);
+});
+
+test("moves sections and ordinary blocks with the keyboard", async ({ page }) => {
+  await page.locator("#editMode").click();
+  const method = page.getByRole("button", { name: "移动章节：Method" });
+  await method.focus();
+  await method.press("Alt+ArrowDown");
+  await expect(page.locator("#editorAnnouncement")).toHaveText("已移动章节：Method");
+
+  const editable = page.locator(".rich-editor .ProseMirror p").filter({ hasText: "Editable paragraph." });
+  await editable.click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect(page.locator("#editorAnnouncement")).toHaveText("已移动当前内容块");
+
+  await page.locator("#sourceEditorMode").click();
+  const markdown = await page.locator("#sourceEditor").inputValue();
+  expect(markdown.indexOf("## Results")).toBeLessThan(markdown.indexOf("## Method"));
+  expect(markdown.indexOf("Editable paragraph.")).toBeGreaterThan(markdown.indexOf("## Results"));
+});
+
+test("uses the live editing outline to focus headings", async ({ page }) => {
+  await page.locator("#editMode").click();
+  const methodLink = page.locator("#tableOfContents .toc-link").filter({ hasText: "Method" });
+  await methodLink.click();
+  await expect(methodLink).toHaveClass(/active/);
+  await expect.poll(() => page.evaluate(() => {
+    const selection = window.getSelection();
+    const element = selection?.anchorNode instanceof Element
+      ? selection.anchorNode
+      : selection?.anchorNode?.parentElement;
+    return element?.closest("h1,h2,h3,h4,h5,h6")?.textContent ?? "";
+  })).toBe("Method");
+  await expect(page).toHaveURL(/#method$/);
+});
+
+test("keeps mobile editor controls inside the viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#editMode").click();
+  const headerBox = await page.locator(".editor-header").boundingBox();
+  expect(headerBox).not.toBeNull();
+  expect(headerBox!.height).toBeLessThan(180);
+
+  const paragraph = page.locator(".rich-editor .ProseMirror p").filter({ hasText: "Editable paragraph." });
+  await paragraph.hover();
+  const blockHandle = page.locator('.milkdown-block-handle[data-show="true"]');
+  await expect(blockHandle).toBeVisible();
+  const blockBox = await blockHandle.boundingBox();
+  expect(blockBox).not.toBeNull();
+  expect(blockBox!.x).toBeGreaterThanOrEqual(0);
+  expect(blockBox!.x + blockBox!.width).toBeLessThanOrEqual(390);
+
+  const sectionHandleBox = await page.getByRole("button", { name: "移动章节：Method" }).boundingBox();
+  expect(sectionHandleBox).not.toBeNull();
+  expect(sectionHandleBox!.width).toBeGreaterThanOrEqual(40);
+
+  await page.locator("#toggleRight").click();
+  await expect(page.locator("#tocSidebar")).toBeInViewport();
+  await page.locator("#tableOfContents .toc-link").filter({ hasText: "Results" }).click();
+  await expect(page.locator("body")).not.toHaveClass(/toc-open/);
+});
+
+for (const viewport of [
+  { width: 320, height: 700 },
+  { width: 720, height: 500 },
+  { width: 960, height: 600 },
+]) {
+  test(`keeps block actions reachable at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.locator("#editMode").click();
+    const paragraph = page.locator(".rich-editor .ProseMirror p").filter({ hasText: "Editable paragraph." });
+    await paragraph.hover();
+    const handle = page.locator('.milkdown-block-handle[data-show="true"]');
+    await expect(handle).toBeVisible();
+    const box = await handle.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width);
+    if (viewport.width <= 720) {
+      const itemBox = await handle.locator(".operation-item").first().boundingBox();
+      expect(itemBox).not.toBeNull();
+      expect(itemBox!.width).toBeGreaterThanOrEqual(40);
+      expect(itemBox!.height).toBeGreaterThanOrEqual(40);
+    }
+  });
+}
+
+test("shows upload progress and clears the file-drop affordance", async ({ page }) => {
+  await page.locator("#editMode").click();
+  const transfer = await page.evaluateHandle(() => {
+    const data = new DataTransfer();
+    data.items.add(new File(["drop-image"], "dropped.png", { type: "image/png" }));
+    return data;
+  });
+  await page.dispatchEvent("#richEditor", "dragenter", { dataTransfer: transfer });
+  await expect(page.locator("#editorDropOverlay")).toBeVisible();
+  await page.dispatchEvent("#richEditor", "drop", { dataTransfer: transfer });
+  await expect(page.locator("#editorDropOverlay")).toBeHidden();
+  await expect(page.locator("#uploadPanel")).toBeVisible();
+  await expect(page.locator("#uploadSummary")).toContainText("1 个文件已插入");
+  await expect(page.locator(".upload-item.done")).toContainText("dropped.png");
+});
+
+test("captures stable desktop and mobile editor chrome", async ({ page }) => {
+  await page.locator("#editMode").click();
+  const desktopShell = await page.locator("#editorShell").boundingBox();
+  expect(desktopShell).not.toBeNull();
+  await expect(page).toHaveScreenshot("editor-chrome-desktop.png", {
+    animations: "disabled",
+    clip: {
+      x: desktopShell!.x,
+      y: desktopShell!.y,
+      width: desktopShell!.width,
+      height: Math.min(600, 720 - desktopShell!.y),
+    },
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileShell = await page.locator("#editorShell").boundingBox();
+  expect(mobileShell).not.toBeNull();
+  await expect(page).toHaveScreenshot("editor-chrome-mobile.png", {
+    animations: "disabled",
+    clip: {
+      x: mobileShell!.x,
+      y: mobileShell!.y,
+      width: mobileShell!.width,
+      height: Math.min(760, 844 - mobileShell!.y),
+    },
+  });
 });
 
 for (const [fixture, expectedFragments] of Object.entries(roundTripCases)) {

@@ -13,43 +13,67 @@ import { TextSelection } from "@milkdown/kit/prose/state";
 import { replaceAll } from "@milkdown/kit/utils";
 
 import type { AssetResponse } from "../api/assets";
-import { assetMarkdown } from "./media";
 import { sectionDrag } from "./extensions/section-drag";
 import { mediaPreview } from "./extensions/media-preview";
 import { imagePreview } from "./extensions/image-preview";
+import { assetMarkdown } from "./media";
+import { editorMessages } from "./messages";
 import { richBlockEditConfig } from "./slash-menu";
+import { slugifyHeading } from "./toc";
 
 export interface RichEditorOptions {
   root: HTMLElement;
   markdown: string;
   documentPath: string;
   onChange: (markdown: string) => void;
-  uploadFile: (file: File) => Promise<AssetResponse>;
+  onFiles: (files: File[]) => void;
+  onFileDragActive: (active: boolean) => void;
+}
+
+export interface InsertedAsset {
+  asset: AssetResponse;
+  fileName: string;
 }
 
 export class RichDocumentEditor {
   private crepe: CrepeBuilder | null = null;
   private suppressChanges = false;
-  private uploadFile: ((file: File) => Promise<AssetResponse>) | null = null;
+  private onFiles: ((files: File[]) => void) | null = null;
+  private onFileDragActive: ((active: boolean) => void) | null = null;
   private dropRoot: HTMLElement | null = null;
+  private dragDepth = 0;
+  private readonly handleDragEnter = (event: DragEvent) => {
+    if (!(event.dataTransfer?.files.length)) return;
+    this.dragDepth += 1;
+    this.onFileDragActive?.(true);
+  };
   private readonly handleDragOver = (event: DragEvent) => {
     if (!(event.dataTransfer?.files.length)) return;
     event.preventDefault();
     event.stopPropagation();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    this.onFileDragActive?.(true);
+  };
+  private readonly handleDragLeave = (event: DragEvent) => {
+    if (!(event.dataTransfer?.types.includes("Files"))) return;
+    this.dragDepth = Math.max(0, this.dragDepth - 1);
+    if (this.dragDepth === 0) this.onFileDragActive?.(false);
   };
   private readonly handleDrop = (event: DragEvent) => {
     const files = [...(event.dataTransfer?.files ?? [])];
     if (!files.length) return;
     event.preventDefault();
     event.stopPropagation();
-    void this.insertFiles(files);
+    this.dragDepth = 0;
+    this.onFileDragActive?.(false);
+    this.onFiles?.(files);
   };
   private readonly handlePaste = (event: ClipboardEvent) => {
     const files = [...(event.clipboardData?.files ?? [])];
     if (!files.length) return;
     event.preventDefault();
     event.stopPropagation();
-    void this.insertFiles(files);
+    this.onFiles?.(files);
   };
 
   async mount(options: RichEditorOptions): Promise<void> {
@@ -67,21 +91,33 @@ export class RichDocumentEditor {
       .addFeature(listItem)
       .addFeature(linkTooltip)
       .addFeature(blockEdit, richBlockEditConfig)
-      .addFeature(placeholder, { text: "Type / for commands", mode: "block" })
-      .addFeature(toolbar)
+      .addFeature(placeholder, { text: editorMessages.placeholder, mode: "block" })
+      .addFeature(toolbar, {
+        boldLabel: editorMessages.toolbar.bold,
+        italicLabel: editorMessages.toolbar.italic,
+        strikethroughLabel: editorMessages.toolbar.strikethrough,
+        codeLabel: editorMessages.toolbar.code,
+        linkLabel: editorMessages.toolbar.link,
+        latexLabel: editorMessages.toolbar.math,
+      })
       .addFeature(codeMirror, { languages: [] })
       .addFeature(table)
       .addFeature(latex);
     crepe.on((listener) => {
       listener.markdownUpdated((_ctx, markdown) => {
+        this.syncHeadingIds(options.root);
         if (!this.suppressChanges) options.onChange(markdown);
       });
     });
     await crepe.create();
     this.crepe = crepe;
-    this.uploadFile = options.uploadFile;
+    this.syncHeadingIds(options.root);
+    this.onFiles = options.onFiles;
+    this.onFileDragActive = options.onFileDragActive;
     this.dropRoot = options.root;
+    options.root.addEventListener("dragenter", this.handleDragEnter, true);
     options.root.addEventListener("dragover", this.handleDragOver, true);
+    options.root.addEventListener("dragleave", this.handleDragLeave, true);
     options.root.addEventListener("drop", this.handleDrop, true);
     options.root.addEventListener("paste", this.handlePaste, true);
   }
@@ -97,13 +133,9 @@ export class RichDocumentEditor {
     this.suppressChanges = false;
   }
 
-  async insertFiles(files: Iterable<File>): Promise<void> {
-    if (!this.crepe || !this.uploadFile) return;
-    const blocks: string[] = [];
-    for (const file of files) {
-      const asset = await this.uploadFile(file);
-      blocks.push(assetMarkdown(asset, file.name));
-    }
+  insertAssets(assets: Iterable<InsertedAsset>): void {
+    if (!this.crepe) return;
+    const blocks = [...assets].map(({ asset, fileName }) => assetMarkdown(asset, fileName));
     if (blocks.length) this.insertMarkdownBlocks(`${blocks.join("\n\n")}\n`);
   }
 
@@ -132,14 +164,50 @@ export class RichDocumentEditor {
     editor?.focus();
   }
 
+  focusHeading(anchor: string): boolean {
+    let focused = false;
+    this.crepe?.editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      const counts = new Map<string, number>();
+      view.state.doc.forEach((node, position) => {
+        if (focused || node.type.name !== "heading") return;
+        const base = slugifyHeading(node.textContent);
+        const count = counts.get(base) ?? 0;
+        counts.set(base, count + 1);
+        const id = count === 0 ? base : `${base}-${count}`;
+        if (id !== anchor) return;
+        const selection = TextSelection.near(view.state.doc.resolve(position + 1), 1);
+        view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
+        view.focus();
+        focused = true;
+      });
+    });
+    return focused;
+  }
+
   async destroy(): Promise<void> {
     const current = this.crepe;
     this.crepe = null;
-    this.uploadFile = null;
+    this.onFiles = null;
+    this.onFileDragActive = null;
+    this.dragDepth = 0;
+    this.dropRoot?.removeEventListener("dragenter", this.handleDragEnter, true);
     this.dropRoot?.removeEventListener("dragover", this.handleDragOver, true);
+    this.dropRoot?.removeEventListener("dragleave", this.handleDragLeave, true);
     this.dropRoot?.removeEventListener("drop", this.handleDrop, true);
     this.dropRoot?.removeEventListener("paste", this.handlePaste, true);
     this.dropRoot = null;
     if (current) await current.destroy();
+  }
+
+  private syncHeadingIds(root: HTMLElement): void {
+    const counts = new Map<string, number>();
+    root.querySelectorAll<HTMLElement>(".ProseMirror h1,.ProseMirror h2,.ProseMirror h3,.ProseMirror h4,.ProseMirror h5,.ProseMirror h6")
+      .forEach((heading) => {
+        const base = slugifyHeading(heading.textContent);
+        const count = counts.get(base) ?? 0;
+        counts.set(base, count + 1);
+        heading.dataset.headingId = count === 0 ? base : `${base}-${count}`;
+      });
   }
 }

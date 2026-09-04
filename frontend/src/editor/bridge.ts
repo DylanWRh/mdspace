@@ -6,7 +6,9 @@ import { uploadAsset } from "../api/assets";
 import { assetMarkdown } from "./media";
 import { loadSource, saveSource, type SaveDocumentResponse } from "../api/documents";
 import { AutosaveQueue } from "./save";
+import { SourceEditorAdapter } from "./source-editor";
 import { extractEditorHeadings, type EditorHeading } from "./toc";
+import { UploadQueue } from "./upload-queue";
 
 interface StartOptions {
   source: string;
@@ -27,6 +29,7 @@ export interface EditorBridge {
   representation(): EditorRepresentation;
   switchRepresentation(mode: EditorRepresentation): void;
   focus(): void;
+  focusHeading(anchor: string): boolean;
   save(): Promise<boolean>;
   hasUnsavedChanges(): boolean;
   hasConflict(): boolean;
@@ -34,7 +37,12 @@ export interface EditorBridge {
 
 export function createEditorBridge(): EditorBridge {
   const richRoot = requiredElement<HTMLElement>("#richEditor");
-  const sourceEditor = requiredElement<HTMLTextAreaElement>("#sourceEditor");
+  const sourceEditor = new SourceEditorAdapter({
+    shell: requiredElement<HTMLElement>("#sourceEditorShell"),
+    textarea: requiredElement<HTMLTextAreaElement>("#sourceEditor"),
+    position: requiredElement<HTMLElement>("#sourcePosition"),
+    wrapButton: requiredElement<HTMLButtonElement>("#toggleSourceWrap"),
+  });
   const richButton = requiredElement<HTMLButtonElement>("#richEditorMode");
   const sourceButton = requiredElement<HTMLButtonElement>("#sourceEditorMode");
   const rich = new RichDocumentEditor();
@@ -44,6 +52,10 @@ export function createEditorBridge(): EditorBridge {
   const assetInput = requiredElement<HTMLInputElement>("#assetInput");
   const saveButton = requiredElement<HTMLButtonElement>("#saveDocument");
   const editorState = requiredElement<HTMLElement>("#editorState");
+  const editorSaveStatus = requiredElement<HTMLElement>("#editorSaveStatus");
+  const editorSaveDetail = requiredElement<HTMLElement>("#editorSaveDetail");
+  const retrySave = requiredElement<HTMLButtonElement>("#retrySave");
+  const editorDropOverlay = requiredElement<HTMLElement>("#editorDropOverlay");
   const conflictBanner = requiredElement<HTMLElement>("#conflictBanner");
   const reloadConflict = requiredElement<HTMLButtonElement>("#reloadConflict");
   const sourceConflict = requiredElement<HTMLButtonElement>("#sourceConflict");
@@ -51,6 +63,19 @@ export function createEditorBridge(): EditorBridge {
   let changeListener: (markdown: string) => void = () => undefined;
   let documentPath = "";
   let startOptions: StartOptions | null = null;
+  let lastSavedAt: Date | null = null;
+
+  const uploadQueue = new UploadQueue(
+    {
+      panel: requiredElement<HTMLElement>("#uploadPanel"),
+      list: requiredElement<HTMLElement>("#uploadList"),
+      summary: requiredElement<HTMLElement>("#uploadSummary"),
+    },
+    (busy) => {
+      insertAssetButton.classList.toggle("uploading", busy);
+      insertAssetButton.setAttribute("aria-busy", String(busy));
+    },
+  );
 
   const renderStatus = () => {
     const { status, error } = session.snapshot;
@@ -63,7 +88,19 @@ export function createEditorBridge(): EditorBridge {
     } as const;
     editorState.textContent = labels[status];
     editorState.title = error;
-    editorState.classList.toggle("dirty", status === "dirty" || status === "conflict" || status === "error");
+    editorSaveStatus.className = `editor-save-status ${status}`;
+    editorSaveDetail.textContent = status === "clean"
+      ? lastSavedAt
+        ? `${new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit" }).format(lastSavedAt)} 写入磁盘`
+        : "磁盘版本已载入"
+      : status === "dirty"
+        ? "等待自动保存"
+        : status === "saving"
+          ? "正在安全写入磁盘"
+          : status === "conflict"
+            ? "自动保存已暂停，请先处理冲突"
+            : error || "请重试或复制当前 Markdown";
+    retrySave.hidden = status !== "error";
     saveButton.disabled = status === "clean" || status === "saving" || status === "conflict";
     saveButton.textContent = status === "saving" ? "保存中…" : "保存";
     conflictBanner.hidden = status !== "conflict";
@@ -99,6 +136,7 @@ export function createEditorBridge(): EditorBridge {
       const latest = session.snapshot.representation === "source" ? sourceEditor.value : rich.getMarkdown();
       session.update(latest);
       session.saved(response.source, response.version);
+      lastSavedAt = new Date();
       renderStatus();
       startOptions?.onSaved?.(response);
       return true;
@@ -121,15 +159,13 @@ export function createEditorBridge(): EditorBridge {
     if (mode === session.snapshot.representation) return;
     if (mode === "source") {
       const markdown = rich.getMarkdown();
-      sourceEditor.value = markdown;
-      publish(markdown);
+      sourceEditor.setValue(markdown);
     } else {
       rich.setMarkdown(sourceEditor.value);
-      publish(sourceEditor.value);
     }
     session.switchRepresentation(mode);
     richRoot.hidden = mode !== "rich";
-    sourceEditor.hidden = mode !== "source";
+    sourceEditor.show(mode === "source");
     richButton.classList.toggle("active", mode === "rich");
     sourceButton.classList.toggle("active", mode === "source");
     richButton.setAttribute("aria-pressed", String(mode === "rich"));
@@ -139,41 +175,16 @@ export function createEditorBridge(): EditorBridge {
 
   richButton.addEventListener("click", () => switchRepresentation("rich"));
   sourceButton.addEventListener("click", () => switchRepresentation("source"));
-  sourceEditor.addEventListener("input", () => {
-    if (session.snapshot.representation === "source") publish(sourceEditor.value);
-  });
-  sourceEditor.addEventListener("keydown", (event) => {
-    if (event.key !== "Tab") return;
-    event.preventDefault();
-    sourceEditor.setRangeText(
-      "  ",
-      sourceEditor.selectionStart,
-      sourceEditor.selectionEnd,
-      "end",
-    );
-    publish(sourceEditor.value);
+  sourceEditor.onChange((value) => {
+    if (session.snapshot.representation === "source") publish(value);
   });
   insertAssetButton.addEventListener("click", () => assetInput.click());
-  assetInput.addEventListener("change", async () => {
+  assetInput.addEventListener("change", () => {
     const files = [...(assetInput.files ?? [])];
     assetInput.value = "";
-    if (session.snapshot.representation === "rich") {
-      await rich.insertFiles(files);
-      return;
-    }
-    const markdown = (
-      await Promise.all(
-        files.map(async (file) => assetMarkdown(await uploadAsset(client, documentPath, file), file.name)),
-      )
-    ).join("\n\n");
-    sourceEditor.setRangeText(
-      `${markdown}\n`,
-      sourceEditor.selectionStart,
-      sourceEditor.selectionEnd,
-      "end",
-    );
-    publish(sourceEditor.value);
+    enqueueFiles(files);
   });
+  retrySave.addEventListener("click", () => void autosave.flush());
   reloadConflict.addEventListener("click", async () => {
     const current = session.snapshot;
     const external = await loadSource(client, current.path);
@@ -188,10 +199,27 @@ export function createEditorBridge(): EditorBridge {
     );
   });
 
+  const enqueueFiles = (files: File[]) => {
+    void uploadQueue.enqueue(
+      files,
+      (file) => uploadAsset(client, documentPath, file),
+      (asset, file) => {
+        if (session.snapshot.representation === "rich") {
+          rich.insertAssets([{ asset, fileName: file.name }]);
+          return;
+        }
+        sourceEditor.insert(`${assetMarkdown(asset, file.name)}\n`);
+      },
+    );
+  };
+
   const start = async (options: StartOptions) => {
     startOptions = options;
     changeListener = options.onChange;
     documentPath = options.path;
+    lastSavedAt = null;
+    uploadQueue.reset();
+    editorDropOverlay.hidden = true;
     autosave.resume();
     session.start({
       source: options.source,
@@ -199,10 +227,10 @@ export function createEditorBridge(): EditorBridge {
       workspace: options.workspace,
       version: options.version,
     });
-    sourceEditor.value = options.source;
+    sourceEditor.setValue(options.source, false);
     session.switchRepresentation("rich");
     richRoot.hidden = false;
-    sourceEditor.hidden = true;
+    sourceEditor.show(false);
     richButton.classList.add("active");
     sourceButton.classList.remove("active");
     await rich.mount({
@@ -210,7 +238,10 @@ export function createEditorBridge(): EditorBridge {
       markdown: options.source,
       documentPath: options.path,
       onChange: publish,
-      uploadFile: (file) => uploadAsset(client, options.path, file),
+      onFiles: enqueueFiles,
+      onFileDragActive: (active) => {
+        editorDropOverlay.hidden = !active;
+      },
     });
     options.onTocChange?.(extractEditorHeadings(options.source));
     renderStatus();
@@ -221,7 +252,10 @@ export function createEditorBridge(): EditorBridge {
     async destroy() {
       autosave.stop();
       await rich.destroy();
-      sourceEditor.value = "";
+      sourceEditor.clear();
+      sourceEditor.show(false);
+      uploadQueue.reset();
+      editorDropOverlay.hidden = true;
       session.reset();
       documentPath = "";
       startOptions = null;
@@ -233,7 +267,7 @@ export function createEditorBridge(): EditorBridge {
         : rich.getMarkdown();
     },
     setMarkdown(markdown) {
-      sourceEditor.value = markdown;
+      sourceEditor.setValue(markdown);
       rich.setMarkdown(markdown);
       session.update(markdown);
     },
@@ -242,6 +276,10 @@ export function createEditorBridge(): EditorBridge {
     focus() {
       if (session.snapshot.representation === "source") sourceEditor.focus();
       else rich.focus();
+    },
+    focusHeading(anchor) {
+      if (session.snapshot.representation !== "rich") switchRepresentation("rich");
+      return rich.focusHeading(anchor);
     },
     save: () => autosave.flush(),
     hasUnsavedChanges: () => session.snapshot.status !== "clean",

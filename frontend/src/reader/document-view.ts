@@ -14,6 +14,7 @@ export interface DocumentViewOptions {
 
 export class DocumentView {
   private observer: IntersectionObserver | null = null;
+  private tocRenderToken = 0;
   private previewTimer: number | null = null;
   private hidePreviewTimer: number | null = null;
   private previewController: AbortController | null = null;
@@ -57,6 +58,7 @@ export class DocumentView {
     preview.addEventListener("pointerleave", () => {
       this.hidePreviewTimer = window.setTimeout(() => this.hidePreview(), 160);
     });
+    document.addEventListener("selectionchange", () => this.updateEditingTocFromSelection());
   }
 
   resetForNavigation(): void {
@@ -92,7 +94,10 @@ export class DocumentView {
       });
       toc.append(link);
     }
-    this.observeHeadings(items);
+    const renderToken = ++this.tocRenderToken;
+    requestAnimationFrame(() => {
+      if (renderToken === this.tocRenderToken) this.observeHeadings(items);
+    });
   }
 
   renderBreadcrumbs(path: string, projectName: string): void {
@@ -123,10 +128,17 @@ export class DocumentView {
       return;
     }
     const { elements, folding } = this.options;
-    const scope = this.options.mode() === "edit"
+    const editing = this.options.mode() === "edit";
+    const scope = editing
       ? document.querySelector<HTMLElement>("#richEditor")
       : elements.content;
     if (!scope) return;
+    if (editing && window.markdownReaderEditor.focusHeading(anchor)) {
+      this.setActiveToc(anchor);
+      document.body.classList.remove("toc-open");
+      if (updateHistory) this.replaceAnchorHistory(anchor);
+      return;
+    }
     let target = scope.querySelector<HTMLElement>(`#${CSS.escape(anchor)}`);
     if (!target) {
       const decoded = decodeURIComponent(anchor).toLocaleLowerCase();
@@ -134,16 +146,11 @@ export class DocumentView {
         .find((heading) => heading.textContent.trim().toLocaleLowerCase() === decoded) ?? null;
     }
     if (!target) return;
-    if (this.options.mode() !== "edit") folding.revealFor(target);
+    if (!editing) folding.revealFor(target);
     target.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (updateHistory) {
-      const currentPath = this.options.currentPath();
-      history.replaceState(
-        { path: currentPath },
-        "",
-        `/?file=${encodeURIComponent(currentPath)}#${encodeURIComponent(target.id)}`,
-      );
-    }
+    this.setActiveToc(target.id);
+    document.body.classList.remove("toc-open");
+    if (updateHistory) this.replaceAnchorHistory(target.id);
   }
 
   async enhanceDocument(): Promise<void> {
@@ -230,26 +237,73 @@ export class DocumentView {
 
   private observeHeadings(items: TocItem[]): void {
     this.observer?.disconnect();
+    const scope = this.options.mode() === "edit"
+      ? document.querySelector<HTMLElement>("#richEditor")
+      : document;
+    if (!scope) return;
     const headings = items
-      .map((item) => document.getElementById(item.id))
+      .map((item) => this.options.mode() === "edit"
+        ? scope.querySelector<HTMLElement>(`[data-heading-id="${CSS.escape(item.id)}"]`)
+        : scope.querySelector<HTMLElement>(`#${CSS.escape(item.id)}`))
       .filter((heading): heading is HTMLElement => heading instanceof HTMLElement);
     this.observer = new IntersectionObserver((entries) => {
       const visible = entries
         .filter((entry) => entry.isIntersecting)
         .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top);
-      let id = (visible[0]?.target as HTMLElement | undefined)?.id;
+      let id = this.headingIdentifier(visible[0]?.target as HTMLElement | undefined);
       if (!id) {
         const above = headings.filter((heading) => heading.getBoundingClientRect().top < 100);
-        id = above.at(-1)?.id ?? headings[0]?.id;
+        id = this.headingIdentifier(above.at(-1)) || this.headingIdentifier(headings[0]);
       }
       if (!id) return;
-      this.options.elements.toc.querySelectorAll<HTMLElement>(".toc-link").forEach((link) => {
-        link.classList.toggle("active", link.dataset.headingId === id);
-      });
-      this.options.elements.toc.querySelector<HTMLElement>(".toc-link.active")
-        ?.scrollIntoView({ block: "nearest" });
+      this.setActiveToc(id);
     }, { rootMargin: "-76px 0px -68% 0px", threshold: [0, 1] });
     headings.forEach((heading) => this.observer?.observe(heading));
+  }
+
+  private updateEditingTocFromSelection(): void {
+    if (this.options.mode() !== "edit") return;
+    const editor = document.querySelector<HTMLElement>("#richEditor .ProseMirror");
+    const anchorNode = window.getSelection()?.anchorNode;
+    if (!editor || !anchorNode || !editor.contains(anchorNode)) return;
+    const anchorElement = anchorNode instanceof Element ? anchorNode : anchorNode.parentElement;
+    if (!anchorElement) return;
+    const headings = [...editor.querySelectorAll<HTMLElement>("h1,h2,h3,h4,h5,h6")];
+    let active: HTMLElement | undefined;
+    for (let index = headings.length - 1; index >= 0; index -= 1) {
+      const heading = headings[index];
+      if (
+        heading === anchorElement
+        || heading.contains(anchorElement)
+        || Boolean(heading.compareDocumentPosition(anchorElement) & Node.DOCUMENT_POSITION_FOLLOWING)
+      ) {
+        active = heading;
+        break;
+      }
+    }
+    const id = this.headingIdentifier(active);
+    if (id) this.setActiveToc(id);
+  }
+
+  private setActiveToc(id: string): void {
+    this.options.elements.toc.querySelectorAll<HTMLElement>(".toc-link").forEach((link) => {
+      link.classList.toggle("active", link.dataset.headingId === id);
+    });
+    this.options.elements.toc.querySelector<HTMLElement>(".toc-link.active")
+      ?.scrollIntoView({ block: "nearest" });
+  }
+
+  private replaceAnchorHistory(anchor: string): void {
+    const currentPath = this.options.currentPath();
+    history.replaceState(
+      { path: currentPath, anchor },
+      "",
+      `/?file=${encodeURIComponent(currentPath)}#${encodeURIComponent(anchor)}`,
+    );
+  }
+
+  private headingIdentifier(heading: HTMLElement | undefined): string {
+    return heading?.dataset.headingId || heading?.id || "";
   }
 
   private async showPreview(link: HTMLAnchorElement): Promise<void> {

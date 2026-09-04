@@ -1,0 +1,46 @@
+export const editorMessages = {
+  placeholder: "输入 / 打开命令菜单",
+  toolbar: {
+    bold: "粗体",
+    italic: "斜体",
+    strikethrough: "删除线",
+    code: "行内代码",
+    link: "链接",
+    math: "行内公式",
+  },
+  menu: {
+    textGroup: "文本",
+    text: "正文",
+    heading1: "一级标题",
+    heading2: "二级标题",
+    heading3: "三级标题",
+    quote: "引用",
+    divider: "分隔线",
+    listGroup: "列表",
+    bulletList: "无序列表",
+    orderedList: "有序列表",
+    taskList: "任务列表",
+    insertGroup: "插入",
+    image: "图片或文件",
+    codeBlock: "代码块",
+    table: "表格",
+    math: "公式块",
+    mermaid: "Mermaid 图表",
+  },
+  section: {
+    move: (title: string) => `移动章节：${title || "未命名章节"}`,
+    hint: "拖动可移动整个章节；Alt+↑/↓ 可键盘移动",
+    moveUp: (title: string) => `上移章节：${title || "未命名章节"}`,
+    moveDown: (title: string) => `下移章节：${title || "未命名章节"}`,
+    moving: (title: string, childHeadings = 0) => childHeadings
+      ? `正在移动章节：${title || "未命名章节"}（含 ${childHeadings} 个子标题）`
+      : `正在移动章节：${title || "未命名章节"}`,
+    moved: (title: string) => `已移动章节：${title || "未命名章节"}`,
+    unavailable: "此章节无法继续向该方向移动",
+    invalidTarget: "不能将章节放入自身范围或当前位置",
+  },
+  block: {
+    moved: "已移动当前内容块",
+    unavailable: "当前内容块无法继续向该方向移动",
+  },
+} as const;

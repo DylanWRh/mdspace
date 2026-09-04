@@ -85,12 +85,13 @@ function setEditorDirty(dirty: boolean): void {
 function setMode(mode: ReaderMode): void {
   state.mode = mode;
   const editing = mode === "edit";
+  document.body.classList.remove("toc-open", "left-open");
   document.body.classList.toggle("editing", editing);
   elements.readMode.classList.toggle("active", !editing);
   elements.readMode.setAttribute("aria-pressed", String(!editing));
   elements.editMode.classList.toggle("active", editing);
   elements.editMode.setAttribute("aria-pressed", String(editing));
-  elements.cancelEdit.hidden = !editing;
+  elements.finishEdit.hidden = !editing;
   elements.saveDocument.hidden = !editing;
   elements.editor.hidden = !editing;
   elements.content.hidden = editing;
@@ -100,10 +101,6 @@ function setMode(mode: ReaderMode): void {
     void window.markdownReaderEditor.destroy();
     setEditorDirty(false);
   }
-}
-
-function confirmEditorLeave(): boolean {
-  return !state.editorDirty || window.confirm("当前文档有未保存的更改，确定要放弃吗？");
 }
 
 async function enterEditMode(): Promise<void> {
@@ -140,13 +137,6 @@ async function enterEditMode(): Promise<void> {
     elements.editMode.disabled = !state.project?.initialized;
     elements.editMode.textContent = "编辑";
   }
-}
-
-function cancelEditing(): boolean {
-  if (state.mode !== "edit") return true;
-  if (!confirmEditorLeave()) return false;
-  setMode("read");
-  return true;
 }
 
 async function finishEditing(): Promise<boolean> {
@@ -303,15 +293,22 @@ function bindUI(): void {
   });
   elements.readMode.addEventListener("click", () => void finishEditing());
   elements.editMode.addEventListener("click", () => void enterEditMode());
-  elements.cancelEdit.addEventListener("click", cancelEditing);
+  elements.finishEdit.addEventListener("click", () => void finishEditing());
   elements.saveDocument.addEventListener("click", () => void saveDocument());
   elements.toggleAllSections.addEventListener("click", () => folding.toggleAllSections());
   elements.toggleRight.addEventListener("click", () => {
+    if (window.matchMedia("(max-width: 960px)").matches) {
+      document.body.classList.toggle("toc-open");
+      document.body.classList.remove("left-open");
+      return;
+    }
     document.body.classList.toggle("right-collapsed");
   });
   elements.openLeft.addEventListener("click", () => document.body.classList.add("left-open"));
   elements.closeLeft.addEventListener("click", () => document.body.classList.remove("left-open"));
-  elements.mobileScrim.addEventListener("click", () => document.body.classList.remove("left-open"));
+  elements.mobileScrim.addEventListener("click", () => {
+    document.body.classList.remove("left-open", "toc-open");
+  });
   elements.backToTop.addEventListener("click", () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
@@ -392,14 +389,7 @@ function handleKeydown(event: KeyboardEvent): void {
       workspaceSwitcher.close();
       return;
     }
-    document.body.classList.remove("left-open");
-    const activeElement = document.activeElement;
-    if (
-      state.mode === "edit"
-      && !(activeElement instanceof Element && activeElement.closest(".milkdown"))
-    ) {
-      cancelEditing();
-    }
+    document.body.classList.remove("left-open", "toc-open");
   }
   const activeElement = document.activeElement;
   if (

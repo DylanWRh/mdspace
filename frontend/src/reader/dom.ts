@@ -30,7 +30,7 @@ export interface ReaderElements {
   chooseCurrentDirectory: HTMLButtonElement;
   readMode: HTMLButtonElement;
   editMode: HTMLButtonElement;
-  cancelEdit: HTMLButtonElement;
+  finishEdit: HTMLButtonElement;
   saveDocument: HTMLButtonElement;
   editor: HTMLElement;
   editorPath: HTMLElement;
@@ -86,7 +86,7 @@ export function readerElements(): ReaderElements {
     chooseCurrentDirectory: requiredElement("#chooseCurrentDirectory"),
     readMode: requiredElement("#readMode"),
     editMode: requiredElement("#editMode"),
-    cancelEdit: requiredElement("#cancelEdit"),
+    finishEdit: requiredElement("#finishEdit"),
     saveDocument: requiredElement("#saveDocument"),
     editor: requiredElement("#editorShell"),
     editorPath: requiredElement("#editorPath"),

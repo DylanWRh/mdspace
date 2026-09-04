@@ -32,7 +32,7 @@
           <button class="mode-button active" id="readMode" type="button" aria-pressed="true">阅读</button>
           <button class="mode-button" id="editMode" type="button" aria-pressed="false" disabled>编辑</button>
         </div>
-        <button class="secondary-button editor-action" id="cancelEdit" type="button" hidden>取消</button>
+        <button class="secondary-button editor-action" id="finishEdit" type="button" hidden>完成</button>
         <button class="primary-button editor-action" id="saveDocument" type="button" hidden>保存</button>
         <button class="icon-button" id="toggleAllSections" type="button" aria-label="折叠全部章节" title="折叠全部章节" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9 4-4 4 4M8 15l4 4 4-4M5 12h14"/></svg>
@@ -86,18 +86,28 @@
         <article class="markdown-body" id="documentContent"></article>
         <section class="editor-shell" id="editorShell" aria-label="文档编辑器" hidden>
           <header class="editor-header">
-            <div>
-              <span class="editor-label">DOCUMENT EDITOR</span>
+            <div class="editor-document-meta">
+              <span class="editor-label">文档编辑器</span>
               <strong id="editorPath"></strong>
             </div>
             <div class="editor-header-actions">
-              <button class="secondary-button insert-asset" id="insertAsset" type="button">插入文件</button>
+              <button class="secondary-button insert-asset" id="insertAsset" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 9l5-5 5 5M5 14v5h14v-5"/></svg>
+                <span>插入文件</span>
+              </button>
               <input id="assetInput" type="file" multiple hidden>
               <div class="editor-mode-switch" role="group" aria-label="编辑器模式">
                 <button class="editor-mode-button active" id="richEditorMode" type="button" aria-pressed="true">富文本</button>
                 <button class="editor-mode-button" id="sourceEditorMode" type="button" aria-pressed="false">源码</button>
               </div>
-              <span class="editor-state" id="editorState">已保存</span>
+              <div class="editor-save-status clean" id="editorSaveStatus" role="status" aria-live="polite">
+                <span class="editor-save-indicator" aria-hidden="true"></span>
+                <span class="editor-save-copy">
+                  <strong id="editorState">已保存</strong>
+                  <span id="editorSaveDetail">磁盘版本已载入</span>
+                </span>
+                <button class="editor-retry-save" id="retrySave" type="button" hidden>重试</button>
+              </div>
             </div>
           </header>
           <div class="conflict-banner" id="conflictBanner" role="alert" hidden>
@@ -111,12 +121,32 @@
               <button class="primary-button" id="reloadConflict" type="button">重新载入磁盘版本</button>
             </div>
           </div>
+          <section class="upload-panel" id="uploadPanel" aria-label="文件上传" aria-live="polite" hidden>
+            <div class="upload-panel-heading">
+              <strong>文件插入</strong>
+              <span id="uploadSummary"></span>
+            </div>
+            <div class="upload-list" id="uploadList"></div>
+          </section>
+          <div class="editor-drop-overlay" id="editorDropOverlay" hidden>
+            <div>
+              <strong>松开即可插入文件</strong>
+              <span>图片、视频、音频和附件都会保存为相对路径</span>
+            </div>
+          </div>
           <div class="rich-editor" id="richEditor" aria-label="富文本 Markdown 编辑器"></div>
-          <textarea class="source-editor" id="sourceEditor" aria-label="Markdown 源码" spellcheck="false" hidden></textarea>
+          <section class="source-editor-shell" id="sourceEditorShell" hidden>
+            <textarea class="source-editor" id="sourceEditor" aria-label="Markdown 源码" spellcheck="false"></textarea>
+            <footer class="source-editor-status">
+              <span id="sourcePosition">第 1 行，第 1 列</span>
+              <button id="toggleSourceWrap" type="button" aria-pressed="true">自动换行：开</button>
+            </footer>
+          </section>
           <footer class="editor-footer">
             <span>Markdown 始终是磁盘上的唯一文档格式</span>
             <span><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>S</kbd> 保存</span>
           </footer>
+          <div class="sr-only" id="editorAnnouncement" aria-live="polite"></div>
         </section>
         <footer class="document-footer" id="documentFooter" hidden>
           <span>End of document</span>

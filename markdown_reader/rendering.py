@@ -11,9 +11,12 @@ from urllib.parse import quote, unquote, urlsplit
 
 from markdown_it import MarkdownIt
 from markdown_it.renderer import RendererHTML
+from markdown_it.rules_block import StateBlock
+from markdown_it.rules_inline import StateInline
 from mdit_py_plugins.dollarmath import dollarmath_plugin
 from mdit_py_plugins.footnote import footnote_plugin
 from mdit_py_plugins.tasklists import tasklists_plugin
+from mdit_py_plugins.utils import is_code_block
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import TextLexer, get_lexer_by_name
@@ -251,6 +254,80 @@ def rewrite_html_asset_references(
     return "".join(rewriter.parts)
 
 
+def backslash_math_plugin(md: MarkdownIt) -> None:
+    """Parse MathJax's ``\\(...\\)`` and ``\\[...\\]`` delimiters.
+
+    Markdown treats the delimiter backslashes as punctuation escapes by default,
+    so MathJax cannot discover them after rendering. These rules consume the
+    formulas before the standard escape rule while leaving code spans, fenced
+    code, indented code, and escaped backslashes unchanged.
+    """
+
+    def math_inline_backslash(state: StateInline, silent: bool) -> bool:
+        delimiters = (
+            (r"\(", r"\)", "math_inline"),
+            (r"\[", r"\]", "math_inline_display"),
+        )
+        for opening, closing, token_type in delimiters:
+            if not state.src.startswith(opening, state.pos):
+                continue
+            end = state.src.find(closing, state.pos + len(opening))
+            if end < 0 or end == state.pos + len(opening):
+                return False
+            if not silent:
+                token = state.push(token_type, "math", 0)
+                token.content = state.src[state.pos + len(opening) : end]
+                token.markup = opening
+            state.pos = end + len(closing)
+            return True
+        return False
+
+    def math_block_backslash(
+        state: StateBlock, start_line: int, end_line: int, silent: bool
+    ) -> bool:
+        if is_code_block(state, start_line):
+            return False
+
+        start = state.bMarks[start_line] + state.tShift[start_line]
+        line_end = state.eMarks[start_line]
+        if not state.src.startswith(r"\[", start):
+            return False
+
+        closing_line = start_line
+        closing = state.src.find(r"\]", start + 2, line_end)
+        if closing >= 0 and state.src[closing + 2 : line_end].strip():
+            closing = -1
+
+        while closing < 0:
+            closing_line += 1
+            if closing_line >= end_line:
+                return False
+            line_start = state.bMarks[closing_line] + state.tShift[closing_line]
+            line_end = state.eMarks[closing_line]
+            candidate = state.src.find(r"\]", line_start, line_end)
+            if candidate >= 0 and not state.src[candidate + 2 : line_end].strip():
+                closing = candidate
+
+        if silent:
+            return True
+
+        state.line = closing_line + 1
+        token = state.push("math_block", "math", 0)
+        token.block = True
+        token.content = state.src[start + 2 : closing]
+        token.markup = r"\["
+        token.map = [start_line, state.line]
+        return True
+
+    def render_math_inline_display(self, tokens, idx, options, env) -> str:
+        content = html.escape(str(tokens[idx].content).strip())
+        return f'<span class="math display">\\[{content}\\]</span>'
+
+    md.inline.ruler.before("escape", "math_inline_backslash", math_inline_backslash)
+    md.block.ruler.before("fence", "math_block_backslash", math_block_backslash)
+    md.add_render_rule("math_inline_display", render_math_inline_display)
+
+
 def make_markdown(renderer: RendererHTML) -> MarkdownIt:
     md = MarkdownIt(
         "commonmark",
@@ -270,6 +347,7 @@ def make_markdown(renderer: RendererHTML) -> MarkdownIt:
             else f"\\({html.escape(content)}\\)"
         ),
     )
+    md.use(backslash_math_plugin)
     return md
 
 

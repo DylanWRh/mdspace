@@ -224,6 +224,7 @@
 }
 
 .rich-editor .ProseMirror p { margin: 1em 0; }
+.rich-editor .ProseMirror em, .rich-editor .ProseMirror i { font-style: italic; font-synthesis: weight style; }
 .rich-editor .ProseMirror ul, .rich-editor .ProseMirror ol { margin: 1.1em 0; padding-left: 1.6em; }
 .rich-editor .ProseMirror li { margin: 0.3em 0; }
 

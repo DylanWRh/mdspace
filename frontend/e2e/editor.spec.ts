@@ -32,6 +32,27 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator("#documentContent h1")).toHaveText("Browser Fixture");
 });
 
+test("renders backslash-delimited math and visible italic emphasis", async ({ page }) => {
+  writeFileSync(
+    readmePath(),
+    String.raw`# Reader Rendering
+
+Inline \(x^2 + y^2\) and *italic text*.
+
+\[
+\frac{1}{3}
+\]
+`,
+  );
+  await page.goto("/");
+
+  await expect(page.locator("#documentContent .math.inline mjx-container")).toBeVisible();
+  await expect(page.locator("#documentContent .math.block mjx-container[display='true']")).toBeVisible();
+  const emphasis = page.locator("#documentContent em");
+  await expect(emphasis).toHaveText("italic text");
+  await expect(emphasis).toHaveCSS("font-style", "italic");
+});
+
 test("edits rich content, autosaves, and returns to read mode", async ({ page }) => {
   await page.locator("#editMode").click();
   const editor = page.locator(".rich-editor .ProseMirror");

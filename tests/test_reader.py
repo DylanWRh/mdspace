@@ -74,6 +74,57 @@ flowchart LR
         self.assertIn(r"\(x^2\)", data["html"])
         self.assertIn("/api/raw?path=assets/example.svg", data["html"])
 
+    def test_backslash_math_delimiters_render_without_touching_code(self) -> None:
+        (self.root / "chapters" / "backslash-math.md").write_text(
+            r"""# Backslash Math
+
+Inline \(x^2 + y^2\) and display \[a + b\] in a sentence.
+
+\[
+\frac{1}{3}
+\]
+
+Code `\(not math\)` stays literal.
+
+Escaped \\(not math\\) stays text.
+
+```text
+\[not math\]
+```
+""",
+            encoding="utf-8",
+        )
+
+        data = render_document(
+            ReaderConfig(self.root, self.root / "README.md"),
+            "chapters/backslash-math.md",
+        )
+        rendered = data["html"]
+
+        self.assertIn(r'<span class="math inline">\(x^2 + y^2\)</span>', rendered)
+        self.assertIn(r'<span class="math display">\[a + b\]</span>', rendered)
+        self.assertIn(r'<div class="math block">', rendered)
+        self.assertIn(r"\[\frac{1}{3}\]", rendered)
+        self.assertIn(r"<code>\(not math\)</code>", rendered)
+        self.assertIn(r"Escaped \(not math\) stays text.", rendered)
+        self.assertEqual(rendered.count('class="math inline"'), 1)
+        self.assertEqual(rendered.count('class="math display"'), 1)
+        self.assertEqual(rendered.count('class="math block"'), 1)
+
+    def test_markdown_emphasis_renders_semantic_elements(self) -> None:
+        (self.root / "chapters" / "emphasis.md").write_text(
+            "*Star italic* and _underscore italic_ and <i>raw italic</i>.\n",
+            encoding="utf-8",
+        )
+
+        data = render_document(
+            ReaderConfig(self.root, self.root / "README.md"), "chapters/emphasis.md"
+        )
+
+        self.assertIn("<em>Star italic</em>", data["html"])
+        self.assertIn("<em>underscore italic</em>", data["html"])
+        self.assertIn("<i>raw italic</i>", data["html"])
+
     def test_raw_html_media_sources_are_rewritten(self) -> None:
         (self.root / "chapters" / "media.md").write_text(
             """# Media

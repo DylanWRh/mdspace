@@ -327,6 +327,7 @@ body.editing .mode-switch { display: none; }
 body.editing #toggleAllSections { display: none; }
 .markdown-body p { margin: 1em 0; }
 .markdown-body strong { color: #24272c; font-weight: 700; }
+.markdown-body em, .markdown-body i { font-style: italic; font-synthesis: weight style; }
 .markdown-body a { color: #245bdb; text-decoration: none; border-bottom: 1px solid rgba(36, 91, 219, 0.25); }
 .markdown-body a:hover { color: #1748bd; border-bottom-color: currentColor; }
 .markdown-body a.external-link::after { content: "↗"; display: inline-block; margin-left: 2px; font: 0.72em/1 ui-sans-serif, sans-serif; }
@@ -374,7 +375,7 @@ body.editing #toggleAllSections { display: none; }
 .diagram-shell svg { display: block; max-width: 100%; height: auto; margin: auto; }
 .diagram-shell[data-diagram-state="error"] { color: #b42318; background: #fff8f7; text-align: left; }
 .diagram-shell[data-diagram-state="error"]::after { content: "Mermaid 图表解析失败"; display: block; margin-top: 8px; font: 12px/1.4 ui-sans-serif, sans-serif; }
-.math.block { display: block; margin: 1.35em 0; overflow-x: auto; text-align: center; }
+.math.block, .math.display { display: block; margin: 1.35em 0; overflow-x: auto; text-align: center; }
 mjx-container { overflow-x: auto; overflow-y: hidden; }
 .task-list-item { list-style: none; }
 .task-list-item input { margin: 0 0.5em 0 -1.45em; accent-color: var(--accent); }

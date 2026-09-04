@@ -12,7 +12,7 @@ Local Markdown Reader has two build layers but one runtime application:
 Use Python 3.10 or newer:
 
 ```bash
-python -m pip install -e .
+python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
@@ -20,7 +20,7 @@ python -m pytest
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run typecheck
 npm test
 npm run build

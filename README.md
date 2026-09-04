@@ -120,26 +120,53 @@ Local Markdown Reader provides a documentation-style browsing experience without
 
 Keep notes as Markdown files managed by Git while enjoying a cleaner reading interface.
 
-## Installation
+## Setup
 
-Requirements:
+Choose the setup that matches how you will use the project.
 
-* Python 3.10+
+### Use-only setup
 
-Install from source:
+Use this path if you only want to run Local Markdown Reader. It requires
+Python 3.10 or newer:
 
 ```bash
 python -m pip install .
 ```
 
-For development:
+The Python package includes the compiled browser application. Node.js, npm,
+Playwright, and a Playwright-managed browser are not required to install or
+run `readmd`.
+
+After installation, open a Markdown workspace with:
 
 ```bash
-python -m pip install -e .
+readmd <directory>
 ```
 
-Prebuilt frontend assets are included in the Python package, so Node.js is not
-required for normal installation or use.
+### Full development setup
+
+Use this path to change the Python server or browser application and run the
+complete test and build workflow. It requires Python 3.10 or newer, Node.js,
+and npm.
+
+Install the project in editable mode with the Python test and packaging tools:
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+Install the exact frontend dependency versions recorded in
+`frontend/package-lock.json`, followed by Playwright's Chromium build:
+
+```bash
+cd frontend
+npm ci
+npx playwright install chromium
+cd ..
+```
+
+Playwright and its Chromium build are development-only dependencies used by
+the browser end-to-end tests. They are not part of the use-only setup.
 
 ## Usage
 
@@ -203,33 +230,36 @@ A Markdown project is more than a single file. The reader treats the whole direc
 * Only accesses the selected workspace
 * Does not upload document contents
 
-## Development
+## Development workflow
 
-Python development uses Python 3.10 or newer:
+The following commands assume the full development setup above has been
+completed.
+
+Run the Python test suite:
 
 ```bash
-python -m pip install -e .
 python -m pytest
 ```
 
-The browser application is built with TypeScript, Vite, Milkdown, and Crepe:
+Type-check, test, and build the TypeScript browser application:
 
 ```bash
 cd frontend
-npm install
 npm run typecheck
 npm test
 npm run build
+cd ..
 ```
 
 `npm run dev` watches the frontend and continuously rebuilds the packaged
 assets. Run `readmd . --no-browser` in another terminal while developing.
 
-Browser smoke tests use Playwright:
+Run the Playwright browser end-to-end tests:
 
 ```bash
 cd frontend
 npm run test:e2e
+cd ..
 ```
 
 Build distributable Python artifacts after the frontend build:

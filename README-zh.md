@@ -122,25 +122,50 @@ repository/
 
 使用 Git 管理 Markdown 笔记，同时获得更加舒适的阅读界面。
 
-## 安装
+## 环境配置
 
-环境要求：
+请根据使用目的选择对应的配置方式。
 
-* Python 3.10+
+### 仅使用配置
 
-从源码安装：
+如果只需要运行 Local Markdown Reader，请使用此方式。环境只需要 Python 3.10
+或更高版本：
 
 ```bash
 python -m pip install .
 ```
 
-开发模式：
+Python 安装包已经包含编译后的浏览器应用。安装和运行 `readmd` 不需要
+Node.js、npm、Playwright，也不需要由 Playwright 管理的浏览器。
+
+安装完成后，可用以下命令打开 Markdown 项目：
 
 ```bash
-python -m pip install -e .
+readmd <directory>
 ```
 
-Python 安装包已经包含编译后的前端资源，普通安装和使用不需要 Node.js。
+### 完整开发配置
+
+如果需要修改 Python 服务端或浏览器应用，并运行完整的测试和构建流程，请使用
+此方式。环境需要 Python 3.10 或更高版本、Node.js 和 npm。
+
+以可编辑模式安装项目，同时安装 Python 测试和打包工具：
+
+```bash
+python -m pip install -e ".[dev]"
+```
+
+按照 `frontend/package-lock.json` 安装确定版本的前端依赖，然后安装
+Playwright 使用的 Chromium：
+
+```bash
+cd frontend
+npm ci
+npx playwright install chromium
+cd ..
+```
+
+Playwright 及其 Chromium 仅供浏览器端到端测试使用，不属于仅使用配置。
 
 ## 使用方式
 
@@ -202,23 +227,24 @@ Markdown 文件是唯一真实来源，Reader 只负责提供更好的展示体�
 * 只访问用户主动选择的 workspace
 * 不上传任何文档内容
 
-## 开发
+## 开发流程
 
-Python 端要求 Python 3.10 或更高版本：
+以下命令默认已经完成上面的完整开发配置。
+
+运行 Python 测试：
 
 ```bash
-python -m pip install -e .
 python -m pytest
 ```
 
-浏览器端使用 TypeScript、Vite、Milkdown 和 Crepe：
+检查 TypeScript 类型、运行前端测试并构建浏览器应用：
 
 ```bash
 cd frontend
-npm install
 npm run typecheck
 npm test
 npm run build
+cd ..
 ```
 
 `npm run dev` 会监听前端源文件并持续重新生成 Python 包内的静态资源。
@@ -229,6 +255,7 @@ Playwright 浏览器冒烟测试：
 ```bash
 cd frontend
 npm run test:e2e
+cd ..
 ```
 
 前端构建完成后生成 Python 分发包：

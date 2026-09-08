@@ -348,6 +348,7 @@ def create_app(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="mdspace",
         description="A focused, local-first Markdown reader with project navigation."
     )
     parser.add_argument(

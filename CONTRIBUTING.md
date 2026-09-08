@@ -36,7 +36,7 @@ npm run dev
 Then run Flask in a second terminal:
 
 ```bash
-readmd . --no-browser
+mdspace . --no-browser
 ```
 
 The frontend watcher writes only compiled assets into the Python package. Node

@@ -135,13 +135,13 @@ repository/
 python -m pip install .
 ```
 
-Python 安装包已经包含编译后的浏览器应用。安装和运行 `readmd` 不需要
+Python 安装包已经包含编译后的浏览器应用。安装和运行 `mdspace` 不需要
 Node.js、npm、Playwright，也不需要由 Playwright 管理的浏览器。
 
 安装完成后，可用以下命令打开 Markdown 项目：
 
 ```bash
-readmd <directory>
+mdspace <directory>
 ```
 
 ### 完整开发配置
@@ -172,38 +172,38 @@ Playwright 及其 Chromium 仅供浏览器端到端测试使用，不属于仅�
 打开一个 Markdown 项目：
 
 ```bash
-readmd <directory>
+mdspace <directory>
 ```
 
 或者启动后在浏览器中选择项目：
 
 ```bash
-readmd
+mdspace
 ```
 
 指定初始打开文件：
 
 ```bash
-readmd <directory> --initial <markdown-file>
+mdspace <directory> --initial <markdown-file>
 ```
 
 更多参数：
 
 ```bash
-readmd <directory> --port 9000 --no-browser
+mdspace <directory> --port 9000 --no-browser
 ```
 
 ### 浏览器启动
 
-默认情况下，`readmd` 会请求操作系统使用默认浏览器打开 Reader URL。本地
+默认情况下，`mdspace` 会请求操作系统使用默认浏览器打开 Reader URL。本地
 服务本身并不依赖浏览器自动启动。如果系统没有安装图形浏览器，例如精简版
-Linux、容器、SSH 或远程开发环境，请将 `readmd` 输出的 URL 复制到能够访问
+Linux、容器、SSH 或远程开发环境，请将 `mdspace` 输出的 URL 复制到能够访问
 该服务的浏览器中。
 
 浏览器检测失败会被安静处理。如需完全跳过自动启动，请使用：
 
 ```bash
-readmd <directory> --no-browser
+mdspace <directory> --no-browser
 ```
 
 ## 设计理念
@@ -248,7 +248,7 @@ cd ..
 ```
 
 `npm run dev` 会监听前端源文件并持续重新生成 Python 包内的静态资源。
-开发时可在另一个终端运行 `readmd . --no-browser`。
+开发时可在另一个终端运行 `mdspace . --no-browser`。
 
 Playwright 浏览器冒烟测试：
 

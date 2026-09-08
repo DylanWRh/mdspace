@@ -135,12 +135,12 @@ python -m pip install .
 
 The Python package includes the compiled browser application. Node.js, npm,
 Playwright, and a Playwright-managed browser are not required to install or
-run `readmd`.
+run `mdspace`.
 
 After installation, open a Markdown workspace with:
 
 ```bash
-readmd <directory>
+mdspace <directory>
 ```
 
 ### Full development setup
@@ -173,40 +173,40 @@ the browser end-to-end tests. They are not part of the use-only setup.
 Open a workspace:
 
 ```bash
-readmd <directory>
+mdspace <directory>
 ```
 
 Or select a workspace from the browser:
 
 ```bash
-readmd
+mdspace
 ```
 
 Open a specific initial document:
 
 ```bash
-readmd <directory> --initial <markdown-file>
+mdspace <directory> --initial <markdown-file>
 ```
 
 Additional options:
 
 ```bash
-readmd <directory> --port 9000 --no-browser
+mdspace <directory> --port 9000 --no-browser
 ```
 
 ### Browser startup
 
-By default, `readmd` asks the operating system to open the reader URL in the
+By default, `mdspace` asks the operating system to open the reader URL in the
 default browser. The local server does not depend on this automatic launch. If
 no graphical browser is installed—for example in a minimal Linux, container,
-SSH, or remote development environment—copy the URL printed by `readmd` into a
+SSH, or remote development environment—copy the URL printed by `mdspace` into a
 browser on the machine that can reach the server.
 
 Browser detection failures are handled quietly. To skip the automatic launch
 entirely, use:
 
 ```bash
-readmd <directory> --no-browser
+mdspace <directory> --no-browser
 ```
 
 ## Design Philosophy
@@ -252,7 +252,7 @@ cd ..
 ```
 
 `npm run dev` watches the frontend and continuously rebuilds the packaged
-assets. Run `readmd . --no-browser` in another terminal while developing.
+assets. Run `mdspace . --no-browser` in another terminal while developing.
 
 Run the Playwright browser end-to-end tests:
 

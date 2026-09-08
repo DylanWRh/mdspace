@@ -10,6 +10,8 @@ import { SourceEditorAdapter } from "./source-editor";
 import { extractEditorHeadings, type EditorHeading } from "./toc";
 import { UploadQueue } from "./upload-queue";
 
+const AUTOSAVE_STORAGE_KEY = "markdown-reader:autosave";
+
 interface StartOptions {
   source: string;
   path: string;
@@ -51,6 +53,7 @@ export function createEditorBridge(): EditorBridge {
   const insertAssetButton = requiredElement<HTMLButtonElement>("#insertAsset");
   const assetInput = requiredElement<HTMLInputElement>("#assetInput");
   const saveButton = requiredElement<HTMLButtonElement>("#saveDocument");
+  const autosaveButton = requiredElement<HTMLButtonElement>("#toggleAutosave");
   const editorState = requiredElement<HTMLElement>("#editorState");
   const editorSaveStatus = requiredElement<HTMLElement>("#editorSaveStatus");
   const editorSaveDetail = requiredElement<HTMLElement>("#editorSaveDetail");
@@ -64,6 +67,8 @@ export function createEditorBridge(): EditorBridge {
   let documentPath = "";
   let startOptions: StartOptions | null = null;
   let lastSavedAt: Date | null = null;
+  let autosaveEnabled = readAutosavePreference();
+  let manualFlushes = 0;
 
   const uploadQueue = new UploadQueue(
     {
@@ -94,11 +99,11 @@ export function createEditorBridge(): EditorBridge {
         ? `${new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit" }).format(lastSavedAt)} 写入磁盘`
         : "磁盘版本已载入"
       : status === "dirty"
-        ? "等待自动保存"
+        ? autosaveEnabled ? "等待自动保存" : "等待手动保存"
         : status === "saving"
           ? "正在安全写入磁盘"
           : status === "conflict"
-            ? "自动保存已暂停，请先处理冲突"
+            ? "保存已暂停，请先处理冲突"
             : error || "请重试或复制当前 Markdown";
     retrySave.hidden = status !== "error";
     saveButton.disabled = status === "clean" || status === "saving" || status === "conflict";
@@ -112,7 +117,7 @@ export function createEditorBridge(): EditorBridge {
     renderStatus();
     changeListener(markdown);
     startOptions?.onTocChange?.(extractEditorHeadings(markdown));
-    if (session.snapshot.status === "dirty") autosave.schedule();
+    if (autosaveEnabled && session.snapshot.status === "dirty") autosave.schedule();
   };
 
   const performSave = async (): Promise<boolean> => {
@@ -151,9 +156,44 @@ export function createEditorBridge(): EditorBridge {
 
   const autosave = new AutosaveQueue({
     delay: 1000,
-    isDirty: () => session.snapshot.status === "dirty" || session.snapshot.status === "error",
+    isDirty: () => (
+      autosaveEnabled || manualFlushes > 0
+    ) && (
+      session.snapshot.status === "dirty" || session.snapshot.status === "error"
+    ),
     save: performSave,
   });
+
+  const renderAutosavePreference = () => {
+    autosaveButton.setAttribute("aria-checked", String(autosaveEnabled));
+    autosaveButton.setAttribute("aria-label", `自动保存：${autosaveEnabled ? "开" : "关"}`);
+    autosaveButton.title = autosaveEnabled
+      ? "自动保存已开启；点击关闭"
+      : "自动保存已关闭；点击开启";
+  };
+
+  const setAutosaveEnabled = (enabled: boolean) => {
+    autosaveEnabled = enabled;
+    writeAutosavePreference(enabled);
+    renderAutosavePreference();
+    if (enabled) {
+      if (session.snapshot.status === "dirty" || session.snapshot.status === "error") {
+        autosave.schedule();
+      }
+    } else {
+      autosave.cancelScheduled();
+    }
+    renderStatus();
+  };
+
+  const saveNow = async (): Promise<boolean> => {
+    manualFlushes += 1;
+    try {
+      return await autosave.flush();
+    } finally {
+      manualFlushes -= 1;
+    }
+  };
 
   const switchRepresentation = (mode: EditorRepresentation) => {
     if (mode === session.snapshot.representation) return;
@@ -178,13 +218,14 @@ export function createEditorBridge(): EditorBridge {
   sourceEditor.onChange((value) => {
     if (session.snapshot.representation === "source") publish(value);
   });
+  autosaveButton.addEventListener("click", () => setAutosaveEnabled(!autosaveEnabled));
   insertAssetButton.addEventListener("click", () => assetInput.click());
   assetInput.addEventListener("change", () => {
     const files = [...(assetInput.files ?? [])];
     assetInput.value = "";
     enqueueFiles(files);
   });
-  retrySave.addEventListener("click", () => void autosave.flush());
+  retrySave.addEventListener("click", () => void saveNow());
   reloadConflict.addEventListener("click", async () => {
     const current = session.snapshot;
     const external = await loadSource(client, current.path);
@@ -221,6 +262,7 @@ export function createEditorBridge(): EditorBridge {
     uploadQueue.reset();
     editorDropOverlay.hidden = true;
     autosave.resume();
+    renderAutosavePreference();
     session.start({
       source: options.source,
       path: options.path,
@@ -281,10 +323,26 @@ export function createEditorBridge(): EditorBridge {
       if (session.snapshot.representation !== "rich") switchRepresentation("rich");
       return rich.focusHeading(anchor);
     },
-    save: () => autosave.flush(),
+    save: saveNow,
     hasUnsavedChanges: () => session.snapshot.status !== "clean",
     hasConflict: () => session.snapshot.status === "conflict",
   };
+}
+
+function readAutosavePreference(): boolean {
+  try {
+    return window.localStorage.getItem(AUTOSAVE_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writeAutosavePreference(enabled: boolean): void {
+  try {
+    window.localStorage.setItem(AUTOSAVE_STORAGE_KEY, String(enabled));
+  } catch {
+    // Autosave still works for this page when browser storage is unavailable.
+  }
 }
 
 function requiredElement<T extends Element>(selector: string): T {

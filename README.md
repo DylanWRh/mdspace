@@ -80,7 +80,7 @@ canonical document format:
 * Drop or paste images and attach video, audio, PDFs, and other local files
 * Store media beside the document with portable relative Markdown paths
 * Switch between Rich and Source editing without saving or losing the current session
-* Autosave conservatively while preserving explicit `Ctrl`/`Cmd` + `S`
+* Optionally autosave after edits (off by default) while preserving explicit `Ctrl`/`Cmd` + `S`
 * Detect external file modifications and stop before overwriting them
 
 ## Use Cases

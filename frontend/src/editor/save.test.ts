@@ -51,4 +51,21 @@ describe("AutosaveQueue", () => {
     expect(await queue.flush()).toBe(false);
     expect(save).not.toHaveBeenCalled();
   });
+
+  it("cancels a scheduled save without disabling manual flushes", async () => {
+    vi.useFakeTimers();
+    let dirty = true;
+    const save = vi.fn(async () => {
+      dirty = false;
+      return true;
+    });
+    const queue = new AutosaveQueue({ delay: 1000, isDirty: () => dirty, save });
+    queue.schedule();
+    queue.cancelScheduled();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(save).not.toHaveBeenCalled();
+    expect(await queue.flush()).toBe(true);
+    expect(save).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
 });

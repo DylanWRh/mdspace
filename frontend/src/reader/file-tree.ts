@@ -20,12 +20,19 @@ export function countFiles(nodes: TreeNode[]): number {
 }
 
 export class FileTreeView {
+  private readonly expandedPaths = new Set<string>();
+  private projectRoot = "";
+
   constructor(
     private readonly root: HTMLElement,
     private readonly navigate: (path: string) => void,
   ) {}
 
   render(project: Project, currentPath: string, filter = ""): void {
+    if (project.root !== this.projectRoot) {
+      this.projectRoot = project.root;
+      this.expandedPaths.clear();
+    }
     const { fragment, visibleCount } = this.createTree(
       project.tree,
       currentPath,
@@ -38,7 +45,6 @@ export class FileTreeView {
       empty.textContent = "没有匹配的文件";
       this.root.append(empty);
     }
-    this.expandCurrentPath(currentPath);
   }
 
   private createTree(
@@ -57,14 +63,20 @@ export class FileTreeView {
         if (query && !selfMatches && childResult.visibleCount === 0) continue;
 
         const group = document.createElement("div");
-        group.className = "tree-group";
+        group.className = query || this.expandedPaths.has(node.path)
+          ? "tree-group"
+          : "tree-group collapsed";
         group.dataset.path = node.path;
         const row = document.createElement("div");
         row.className = "tree-row";
         row.style.paddingLeft = "6px";
         row.innerHTML = `<span class="tree-toggle">⌄</span><span class="tree-icon">${icons.folder}</span><span class="tree-label">${escapeHtml(node.name)}</span>`;
         row.title = node.path;
-        row.addEventListener("click", () => group.classList.toggle("collapsed"));
+        row.addEventListener("click", () => {
+          const collapsed = group.classList.toggle("collapsed");
+          if (collapsed) this.expandedPaths.delete(node.path);
+          else this.expandedPaths.add(node.path);
+        });
         const children = document.createElement("div");
         children.className = "tree-children";
         children.append(childResult.fragment);
@@ -103,17 +115,4 @@ export class FileTreeView {
     return { fragment, visibleCount };
   }
 
-  private expandCurrentPath(currentPath: string): void {
-    const active = this.root.querySelector<HTMLElement>(
-      `[data-path="${CSS.escape(currentPath)}"]`,
-    );
-    if (!active) return;
-    active.classList.add("active");
-    let parent = active.parentElement;
-    while (parent && parent !== this.root) {
-      if (parent.classList.contains("tree-group")) parent.classList.remove("collapsed");
-      parent = parent.parentElement;
-    }
-    active.scrollIntoView({ block: "nearest" });
-  }
 }

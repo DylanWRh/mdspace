@@ -72,6 +72,10 @@ test("loads packaged math fonts from the static asset directory", async ({ page 
 
 test("edits rich content, autosaves, and returns to read mode", async ({ page }) => {
   await page.locator("#editMode").click();
+  const autosave = page.locator("#toggleAutosave");
+  await expect(autosave).toHaveAttribute("aria-checked", "false");
+  await autosave.click();
+  await expect(autosave).toHaveAttribute("aria-checked", "true");
   const editor = page.locator(".rich-editor .ProseMirror");
   await expect(editor).toBeVisible();
   await expect(page.locator("#sourceEditor")).toBeHidden();
@@ -88,6 +92,21 @@ test("edits rich content, autosaves, and returns to read mode", async ({ page })
   expect(readFileSync(readmePath(), "utf8")).toContain("Editable paragraph. Updated.");
 });
 
+test("keeps autosave off by default and supports manual saving", async ({ page }) => {
+  await page.locator("#editMode").click();
+  await expect(page.locator("#toggleAutosave")).toHaveAttribute("aria-checked", "false");
+  const paragraph = page.locator(".rich-editor .ProseMirror p").filter({ hasText: "Editable paragraph." }).first();
+  await paragraph.click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" Manual save.");
+  await expect(page.locator("#editorSaveDetail")).toHaveText("等待手动保存");
+  await page.waitForTimeout(1200);
+  expect(readFileSync(readmePath(), "utf8")).not.toContain("Manual save.");
+  await page.keyboard.press("Control+s");
+  await expect(page.locator("#editorState")).toHaveText("已保存");
+  expect(readFileSync(readmePath(), "utf8")).toContain("Manual save.");
+});
+
 test("switches between rich and source without saving as a side effect", async ({ page }) => {
   await page.locator("#editMode").click();
   await expect(page.locator(".rich-editor .ProseMirror")).toBeVisible();
@@ -102,6 +121,7 @@ test("switches between rich and source without saving as a side effect", async (
 
 test("uploads an image and persists only a relative Markdown path", async ({ page }) => {
   await page.locator("#editMode").click();
+  await page.locator("#toggleAutosave").click();
   await page.locator("#insertAsset").click();
   await page.locator("#assetInput").setInputFiles({
     name: "figure.png",
@@ -121,6 +141,7 @@ test("uploads an image and persists only a relative Markdown path", async ({ pag
 
 test("shows a conflict without overwriting an external edit", async ({ page }) => {
   await page.locator("#editMode").click();
+  await page.locator("#toggleAutosave").click();
   const paragraph = page.locator(".rich-editor .ProseMirror p").filter({ hasText: "Editable paragraph." }).first();
   await paragraph.click();
   await page.keyboard.press("End");
@@ -180,6 +201,7 @@ test("renders uploaded video, audio, and attachments as portable rich blocks", a
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.locator("#editMode").click();
+  await page.locator("#toggleAutosave").click();
   await page.locator("#insertAsset").click();
   await page.locator("#assetInput").setInputFiles([
     { name: "demo.mp4", mimeType: "video/mp4", buffer: Buffer.from("video-fixture") },

@@ -64,6 +64,49 @@
   font-weight: 650;
 }
 
+.editor-autosave-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 9px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--ink-secondary);
+  background: var(--canvas);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editor-autosave-toggle:hover { color: var(--ink); border-color: #b9c3d4; }
+.editor-autosave-toggle:focus-visible { outline: 2px solid rgba(51, 112, 255, 0.55); outline-offset: 2px; }
+
+.editor-autosave-track {
+  display: inline-flex;
+  width: 28px;
+  height: 16px;
+  padding: 2px;
+  align-items: center;
+  border-radius: 999px;
+  background: #c7ccd4;
+  transition: background 0.16s ease;
+}
+
+.editor-autosave-track > span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(31, 35, 41, 0.25);
+  transition: transform 0.16s ease;
+}
+
+.editor-autosave-toggle[aria-checked="true"] { color: #245bdb; border-color: #b9caf2; background: #f4f7ff; }
+.editor-autosave-toggle[aria-checked="true"] .editor-autosave-track { background: var(--accent); }
+.editor-autosave-toggle[aria-checked="true"] .editor-autosave-track > span { transform: translateX(12px); }
+
 .editor-save-status {
   display: flex;
   min-width: 174px;
@@ -377,6 +420,7 @@
 @media (max-width: 720px) {
   .editor-header-actions { width: 100%; justify-content: space-between; flex-wrap: wrap; }
   .insert-asset { min-height: 36px; }
+  .editor-autosave-toggle { min-height: 36px; }
   .editor-save-status { order: 3; width: 100%; min-width: 0; }
   .editor-save-copy span { max-width: none; }
   .rich-editor { padding: 20px 18px 66px 48px; }
@@ -405,4 +449,6 @@
   .insert-asset.uploading::after,
   .upload-spinner,
   .editor-save-status.saving .editor-save-indicator { animation: none; }
+  .editor-autosave-track,
+  .editor-autosave-track > span { transition: none; }
 }

@@ -37,6 +37,10 @@ export class AutosaveQueue {
     this.paused = false;
   }
 
+  cancelScheduled(): void {
+    this.clearTimer();
+  }
+
   stop(): void {
     this.pause();
   }

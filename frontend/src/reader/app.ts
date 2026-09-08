@@ -296,6 +296,9 @@ function bindUI(): void {
   elements.finishEdit.addEventListener("click", () => void finishEditing());
   elements.saveDocument.addEventListener("click", () => void saveDocument());
   elements.toggleAllSections.addEventListener("click", () => folding.toggleAllSections());
+  elements.toggleLeft.addEventListener("click", () => {
+    document.body.classList.toggle("left-collapsed");
+  });
   elements.toggleRight.addEventListener("click", () => {
     if (window.matchMedia("(max-width: 960px)").matches) {
       document.body.classList.toggle("toc-open");

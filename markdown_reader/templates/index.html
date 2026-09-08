@@ -19,6 +19,10 @@
         <button class="icon-button mobile-only" id="openLeft" type="button" aria-label="打开项目目录">
           <span class="hamburger-icon" aria-hidden="true"></span>
         </button>
+        <button class="icon-button desktop-only sidebar-chevron" id="toggleLeft" type="button" aria-label="显示或隐藏项目目录" aria-controls="projectSidebar">
+          <span class="sidebar-toggle-hide" aria-hidden="true">‹</span>
+          <span class="sidebar-toggle-show" aria-hidden="true">›</span>
+        </button>
         <a class="brand" href="/" aria-label="Markdown Reader 首页">
           <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
           <span class="brand-name">Markdown Reader</span>
@@ -40,8 +44,9 @@
         <button class="icon-button" id="refreshDocument" type="button" aria-label="重新载入文档" title="重新载入">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5"/></svg>
         </button>
-        <button class="icon-button" id="toggleRight" type="button" aria-label="切换文章目录" title="文章目录">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>
+        <button class="icon-button sidebar-chevron" id="toggleRight" type="button" aria-label="显示或隐藏文章目录" aria-controls="tocSidebar" title="文章目录">
+          <span class="sidebar-toggle-hide" aria-hidden="true">›</span>
+          <span class="sidebar-toggle-show" aria-hidden="true">‹</span>
         </button>
       </div>
     </header>
@@ -100,6 +105,10 @@
                 <button class="editor-mode-button active" id="richEditorMode" type="button" aria-pressed="true">富文本</button>
                 <button class="editor-mode-button" id="sourceEditorMode" type="button" aria-pressed="false">源码</button>
               </div>
+              <button class="editor-autosave-toggle" id="toggleAutosave" type="button" role="switch" aria-checked="false" aria-label="自动保存：关" title="自动保存已关闭；点击开启">
+                <span>自动保存</span>
+                <span class="editor-autosave-track" aria-hidden="true"><span></span></span>
+              </button>
               <div class="editor-save-status clean" id="editorSaveStatus" role="status" aria-live="polite">
                 <span class="editor-save-indicator" aria-hidden="true"></span>
                 <span class="editor-save-copy">
@@ -113,7 +122,7 @@
           <div class="conflict-banner" id="conflictBanner" role="alert" hidden>
             <div>
               <strong>磁盘上的文件已经改变</strong>
-              <span>本地编辑内容仍保留，自动保存已暂停。</span>
+              <span>本地编辑内容仍保留，保存已暂停。</span>
             </div>
             <div class="conflict-actions">
               <button class="secondary-button" id="sourceConflict" type="button">查看源码</button>

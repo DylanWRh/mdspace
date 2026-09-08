@@ -36,6 +36,7 @@ export interface ReaderElements {
   editorPath: HTMLElement;
   toggleAllSections: HTMLButtonElement;
   refreshDocument: HTMLButtonElement;
+  toggleLeft: HTMLButtonElement;
   toggleRight: HTMLButtonElement;
   openLeft: HTMLButtonElement;
   closeLeft: HTMLButtonElement;
@@ -92,6 +93,7 @@ export function readerElements(): ReaderElements {
     editorPath: requiredElement("#editorPath"),
     toggleAllSections: requiredElement("#toggleAllSections"),
     refreshDocument: requiredElement("#refreshDocument"),
+    toggleLeft: requiredElement("#toggleLeft"),
     toggleRight: requiredElement("#toggleRight"),
     openLeft: requiredElement("#openLeft"),
     closeLeft: requiredElement("#closeLeft"),

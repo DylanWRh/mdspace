@@ -236,7 +236,7 @@
     "src": "node_modules/katex/dist/fonts/KaTeX_Typewriter-Regular.woff2"
   },
   "src/main.ts": {
-    "file": "assets/main-DYIAHFbm.js",
+    "file": "assets/main-CtxgVD1i.js",
     "name": "main",
     "src": "src/main.ts",
     "isEntry": true,
@@ -244,7 +244,7 @@
       "src/reader/app.ts"
     ],
     "css": [
-      "assets/main-qVrJKcHb.css"
+      "assets/main-maGiGp1b.css"
     ],
     "assets": [
       "assets/KaTeX_AMS-Regular-BQhdFMY1.woff2",
@@ -309,7 +309,7 @@
     ]
   },
   "src/reader/app.ts": {
-    "file": "assets/app-VUnl0onS.js",
+    "file": "assets/app-DgbNlzQG.js",
     "name": "app",
     "src": "src/reader/app.ts",
     "isDynamicEntry": true
